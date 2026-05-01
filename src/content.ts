@@ -16,6 +16,25 @@ type VisibleEngagementMetrics = {
   comments?: number;
 };
 
+type EngagementClassification =
+  | "very-strong"
+  | "strong"
+  | "normal"
+  | "low"
+  | "suspiciously-low"
+  | "highly-unusual";
+
+type EngagementAnalysis = {
+  views: number;
+  likes: number;
+  comments?: number;
+  likeRate: number;
+  commentRate?: number;
+  engagementRate: number;
+  classification: EngagementClassification;
+  commentsUnavailable: boolean;
+};
+
 function parseYouTubeCount(
   text: string | null | undefined,
 ): number | undefined {
@@ -76,6 +95,58 @@ function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
     views: parseYouTubeCount(getElementTextOrLabel(viewCountElement)),
     likes: parseYouTubeCount(getElementTextOrLabel(likeButton)),
     comments: parseYouTubeCount(getElementTextOrLabel(commentCountElement)),
+  };
+}
+
+function classifyEngagement(engagementRate: number): EngagementClassification {
+  if (engagementRate >= 0.045) {
+    return "very-strong";
+  }
+
+  if (engagementRate >= 0.035) {
+    return "strong";
+  }
+
+  if (engagementRate >= 0.025) {
+    return "normal";
+  }
+
+  if (engagementRate >= 0.01) {
+    return "low";
+  }
+
+  if (engagementRate >= 0.005) {
+    return "suspiciously-low";
+  }
+
+  return "highly-unusual";
+}
+
+function calculateEngagement(
+  metrics: VisibleEngagementMetrics,
+): EngagementAnalysis | undefined {
+  if (!metrics.views || !metrics.likes || metrics.views < 1_000) {
+    return undefined;
+  }
+
+  const commentsUnavailable = metrics.comments === undefined;
+  const likeRate = metrics.likes / metrics.views;
+  const commentRate = commentsUnavailable
+    ? undefined
+    : metrics.comments / metrics.views;
+  const engagementRate = commentsUnavailable
+    ? likeRate
+    : (metrics.likes + metrics.comments) / metrics.views;
+
+  return {
+    views: metrics.views,
+    likes: metrics.likes,
+    comments: metrics.comments,
+    likeRate,
+    commentRate,
+    engagementRate,
+    classification: classifyEngagement(engagementRate),
+    commentsUnavailable,
   };
 }
 
@@ -140,10 +211,9 @@ function injectDummyWarning(): boolean {
     window.removeEventListener("scroll", positionEngageGuardUi);
   };
 
-  console.log(
-    "EngageGuard visible engagement metrics",
-    extractVisibleEngagementMetrics(),
-  );
+  const metrics = extractVisibleEngagementMetrics();
+  console.log("EngageGuard visible engagement metrics", metrics);
+  console.log("EngageGuard engagement analysis", calculateEngagement(metrics));
 
   return true;
 }
