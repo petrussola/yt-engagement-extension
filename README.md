@@ -1,1 +1,1 @@
-# yt-engagement-extension
+# EngageGuard
