@@ -1,10 +1,15 @@
 function isYouTubeWatchPage(): boolean {
+  const url = new URL(window.location.href);
+
   return (
-    window.location.hostname === "www.youtube.com" &&
-    window.location.pathname === "/watch"
+    url.hostname === "www.youtube.com" &&
+    url.pathname === "/watch" &&
+    url.searchParams.has("v")
   );
 }
 
 if (isYouTubeWatchPage()) {
-  console.log("Engagement detector active");
+  console.log("EngageGuard active on YouTube video", {
+    videoId: new URL(window.location.href).searchParams.get("v"),
+  });
 }
