@@ -35,6 +35,14 @@ type EngagementAnalysis = {
   commentsUnavailable: boolean;
 };
 
+const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
+const FORCE_WARNING_QUERY_PARAM = "engageguardForceWarning";
+
+type WarningSeverity = Extract<
+  EngagementClassification,
+  "low" | "suspiciously-low" | "highly-unusual"
+>;
+
 function parseYouTubeCount(
   text: string | null | undefined,
 ): number | undefined {
@@ -88,7 +96,7 @@ function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
     },
   );
   const commentCountElement = document.querySelector(
-    "#comments #count yt-formatted-string",
+    "#comments #count yt-formatted-string, #comments #count",
   );
 
   return {
@@ -150,7 +158,75 @@ function calculateEngagement(
   };
 }
 
-function injectDummyWarning(): boolean {
+function isForceWarningEnabled(): boolean {
+  const url = new URL(window.location.href);
+
+  return (
+    window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true" ||
+    url.searchParams.get(FORCE_WARNING_QUERY_PARAM) === "true" ||
+    url.searchParams.get(FORCE_WARNING_QUERY_PARAM) === "1"
+  );
+}
+
+function getFallbackAnalysisForBypass(): EngagementAnalysis {
+  return {
+    views: 100_000,
+    likes: 800,
+    likeRate: 0.008,
+    engagementRate: 0.008,
+    classification: "suspiciously-low",
+    commentsUnavailable: true,
+  };
+}
+
+function getWarningSeverity(
+  classification: EngagementClassification,
+): WarningSeverity | undefined {
+  if (
+    classification === "low" ||
+    classification === "suspiciously-low" ||
+    classification === "highly-unusual"
+  ) {
+    return classification;
+  }
+
+  return undefined;
+}
+
+function formatPercent(rate: number): string {
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+function getSeverityColor(severity: WarningSeverity): string {
+  if (severity === "highly-unusual") {
+    return "#dc2626";
+  }
+
+  if (severity === "suspiciously-low") {
+    return "#ea580c";
+  }
+
+  return "#f59e0b";
+}
+
+function getSeverityTextColor(severity: WarningSeverity): string {
+  return severity === "low" ? "#431407" : "#ffffff";
+}
+
+function getWarningText(analysis: EngagementAnalysis): string {
+  const engagementText = `Engagement: ${formatPercent(analysis.engagementRate)}`;
+
+  if (analysis.commentsUnavailable) {
+    return [
+      `This video has unusually low visible engagement for its view count · ${engagementText}`,
+      "Comments unavailable; using likes/views only.",
+    ].join("\n");
+  }
+
+  return `This video has unusually low likes/comments for its view count · ${engagementText}`;
+}
+
+function renderEngagementWarning(): boolean {
   const player = document.querySelector<HTMLElement>("#movie_player");
   const metadata = document.querySelector<HTMLElement>(
     "#below ytd-watch-metadata",
@@ -164,19 +240,41 @@ function injectDummyWarning(): boolean {
   document.querySelector("#engageguard-warning")?.remove();
   document.querySelector("#engageguard-player-border")?.remove();
 
+  const metrics = extractVisibleEngagementMetrics();
+  const forceWarning = isForceWarningEnabled();
+  const analysis =
+    calculateEngagement(metrics) ??
+    (forceWarning ? getFallbackAnalysisForBypass() : undefined);
+  console.log("EngageGuard visible engagement metrics", metrics);
+  console.log("EngageGuard engagement analysis", analysis);
+
+  if (!analysis) {
+    return false;
+  }
+
+  const severity =
+    getWarningSeverity(analysis.classification) ??
+    (forceWarning ? "suspiciously-low" : undefined);
+
+  if (!severity) {
+    return true;
+  }
+
+  const severityColor = getSeverityColor(severity);
+  const severityTextColor = getSeverityTextColor(severity);
   const warning = document.createElement("div");
   warning.id = "engageguard-warning";
-  warning.textContent =
-    "This video has unusually low likes/comments for its view count · Engagement: 0.8%";
+  warning.textContent = getWarningText(analysis);
   warning.style.cssText = [
     "box-sizing: border-box",
     "width: 100%",
     "margin: -12px 0 8px",
     "padding: 6px 10px",
-    "background: #fb923c",
+    `background: ${severityColor}`,
     "border: 0",
-    "color: #431407",
-    "font: 700 14px/1.3 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    `color: ${severityTextColor}`,
+    "font: 700 14px/1.35 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "white-space: pre-line",
   ].join(";");
 
   metadata.before(warning);
@@ -186,7 +284,7 @@ function injectDummyWarning(): boolean {
   playerBorder.style.cssText = [
     "position: fixed",
     "box-sizing: border-box",
-    "border: 4px solid #fb923c",
+    `border: 4px solid ${severityColor}`,
     "border-radius: 0",
     "pointer-events: none",
     "z-index: 2147483647",
@@ -211,15 +309,11 @@ function injectDummyWarning(): boolean {
     window.removeEventListener("scroll", positionEngageGuardUi);
   };
 
-  const metrics = extractVisibleEngagementMetrics();
-  console.log("EngageGuard visible engagement metrics", metrics);
-  console.log("EngageGuard engagement analysis", calculateEngagement(metrics));
-
   return true;
 }
 
 function waitForWatchDomAndInject(attempt = 1): void {
-  if (injectDummyWarning()) {
+  if (renderEngagementWarning()) {
     return;
   }
 
@@ -230,9 +324,25 @@ function waitForWatchDomAndInject(attempt = 1): void {
   window.setTimeout(() => waitForWatchDomAndInject(attempt + 1), 250);
 }
 
+function watchForceWarningBypass(): void {
+  let wasForceWarningEnabled = isForceWarningEnabled();
+
+  window.setInterval(() => {
+    const forceWarningEnabled = isForceWarningEnabled();
+
+    if (forceWarningEnabled && !wasForceWarningEnabled) {
+      waitForWatchDomAndInject();
+    }
+
+    wasForceWarningEnabled = forceWarningEnabled;
+  }, 500);
+}
+
 if (isYouTubeWatchPage()) {
   console.log("EngageGuard active on YouTube video", {
+    forceWarning: isForceWarningEnabled(),
     videoId: new URL(window.location.href).searchParams.get("v"),
   });
   waitForWatchDomAndInject();
+  watchForceWarningBypass();
 }
