@@ -10,6 +10,75 @@ function isYouTubeWatchPage(): boolean {
 
 let removeEngageGuardListeners: (() => void) | undefined;
 
+type VisibleEngagementMetrics = {
+  views?: number;
+  likes?: number;
+  comments?: number;
+};
+
+function parseYouTubeCount(
+  text: string | null | undefined,
+): number | undefined {
+  if (!text) {
+    return undefined;
+  }
+
+  const normalizedText = text.replace(/,/g, "").trim();
+  const countMatch = normalizedText.match(/(\d+(?:\.\d+)?)\s*([kmb])?/i);
+
+  if (!countMatch) {
+    return undefined;
+  }
+
+  const value = Number.parseFloat(countMatch[1]);
+  const suffix = countMatch[2]?.toLowerCase();
+  const multiplier =
+    suffix === "k"
+      ? 1_000
+      : suffix === "m"
+        ? 1_000_000
+        : suffix === "b"
+          ? 1_000_000_000
+          : 1;
+
+  return Math.round(value * multiplier);
+}
+
+function getElementTextOrLabel(element: Element | null): string | undefined {
+  if (!element) {
+    return undefined;
+  }
+
+  return (
+    element.getAttribute("aria-label") ??
+    element.getAttribute("title") ??
+    element.textContent ??
+    undefined
+  );
+}
+
+function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
+  const viewCountElement = document.querySelector(
+    "ytd-watch-metadata #info-container #view-count",
+  );
+  const likeButton = Array.from(document.querySelectorAll("button")).find(
+    (button) => {
+      const label = button.getAttribute("aria-label") ?? "";
+
+      return /like this video/i.test(label);
+    },
+  );
+  const commentCountElement = document.querySelector(
+    "#comments #count yt-formatted-string",
+  );
+
+  return {
+    views: parseYouTubeCount(getElementTextOrLabel(viewCountElement)),
+    likes: parseYouTubeCount(getElementTextOrLabel(likeButton)),
+    comments: parseYouTubeCount(getElementTextOrLabel(commentCountElement)),
+  };
+}
+
 function injectDummyWarning(): boolean {
   const player = document.querySelector<HTMLElement>("#movie_player");
   const metadata = document.querySelector<HTMLElement>(
@@ -70,6 +139,11 @@ function injectDummyWarning(): boolean {
     window.removeEventListener("resize", positionEngageGuardUi);
     window.removeEventListener("scroll", positionEngageGuardUi);
   };
+
+  console.log(
+    "EngageGuard visible engagement metrics",
+    extractVisibleEngagementMetrics(),
+  );
 
   return true;
 }
