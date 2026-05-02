@@ -32,7 +32,9 @@ const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
 const METHODOLOGY_URL =
   "https://github.com/petrussola/engageguard#classification";
 
-function getElementTextOrLabel(element: Element | null): string | undefined {
+function getElementTextOrLabel(
+  element: Element | null | undefined,
+): string | undefined {
   if (!element) {
     return undefined;
   }
