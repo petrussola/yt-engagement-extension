@@ -40,7 +40,6 @@ type EngagementAnalysis = {
 };
 
 const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
-const FORCE_WARNING_QUERY_PARAM = "engageguardForceWarning";
 
 type WarningSeverity = Extract<
   EngagementClassification,
@@ -208,13 +207,7 @@ function calculateEngagement(
 }
 
 function isForceWarningEnabled(): boolean {
-  const url = new URL(window.location.href);
-
-  return (
-    window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true" ||
-    url.searchParams.get(FORCE_WARNING_QUERY_PARAM) === "true" ||
-    url.searchParams.get(FORCE_WARNING_QUERY_PARAM) === "1"
-  );
+  return window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true";
 }
 
 function getFallbackAnalysisForBypass(): EngagementAnalysis {
