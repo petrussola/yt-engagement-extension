@@ -107,6 +107,33 @@ Watch-build during development:
 npm run dev
 ```
 
+## Run In Firefox
+
+Firefox local development does not require AMO secrets, signing, or extra
+tooling.
+
+```bash
+npm run build
+```
+
+1. Open `about:debugging#/runtime/this-firefox`.
+2. Click Load Temporary Add-on.
+3. Select `dist/manifest.json`.
+4. Open a YouTube watch page and refresh it.
+
+If you rebuild, reload the temporary add-on in `about:debugging` and refresh
+the YouTube tab.
+
+Package a local ZIP for manual inspection or AMO upload:
+
+```bash
+npm run firefox:zip
+```
+
+The generated archive is written to `artifacts/`. Release and beta versions of
+Firefox require Mozilla signing before installing a packaged extension
+permanently, but the temporary add-on flow works for local development.
+
 ## Load In Chrome
 
 1. Build the project with `npm run build`.

@@ -9,6 +9,7 @@ node_modules/
 dist/
 build/
 .test-dist/
+artifacts/
 
 # Local environment
 .env

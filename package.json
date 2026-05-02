@@ -1,11 +1,12 @@
 {
   "name": "youtube-engage-o-meter",
   "version": "1.0.0",
-  "description": "Chrome extension that highlights YouTube videos with unusually low visible engagement for their view count.",
+  "description": "Browser extension that highlights YouTube videos with unusually low visible engagement for their view count.",
   "type": "module",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
+    "firefox:zip": "npm run build && mkdir -p artifacts && cd dist && zip -r ../artifacts/youtube-engage-o-meter-firefox.zip .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
