@@ -23,7 +23,9 @@ function isYouTubeWatchPage(): boolean {
 }
 
 let commentsObserver: MutationObserver | undefined;
-let previousPlayerPosition: string | undefined;
+let previousPlayerShellBorder: string | undefined;
+let previousPlayerShellBoxSizing: string | undefined;
+let previousPlayerShellBorderRadius: string | undefined;
 let commentsRerenderTimeout: number | undefined;
 let forceWarningInterval: number | undefined;
 let watchDomRetryTimeout: number | undefined;
@@ -200,16 +202,19 @@ function clearScheduledWork(): void {
 
 function cleanupYouTubeEngageOMeterUi(): void {
   document.querySelector("#youtube-engage-o-meter-warning")?.remove();
-  document.querySelector("#youtube-engage-o-meter-player-border")?.remove();
 
-  if (previousPlayerPosition !== undefined) {
-    const player = document.querySelector<HTMLElement>("#movie_player");
+  if (previousPlayerShellBorder !== undefined) {
+    const playerShell = document.querySelector<HTMLElement>("ytd-player");
 
-    if (player) {
-      player.style.position = previousPlayerPosition;
+    if (playerShell) {
+      playerShell.style.border = previousPlayerShellBorder;
+      playerShell.style.boxSizing = previousPlayerShellBoxSizing ?? "";
+      playerShell.style.borderRadius = previousPlayerShellBorderRadius ?? "";
     }
 
-    previousPlayerPosition = undefined;
+    previousPlayerShellBorder = undefined;
+    previousPlayerShellBoxSizing = undefined;
+    previousPlayerShellBorderRadius = undefined;
   }
 }
 
@@ -415,33 +420,22 @@ function renderWarningBanner(
 }
 
 function renderPlayerBorder(
-  player: HTMLElement,
+  playerShell: HTMLElement,
   severity: BannerSeverity,
 ): void {
   const severityColor = getBannerColor(severity);
 
-  previousPlayerPosition = player.style.position;
-  if (!player.style.position) {
-    player.style.position = "relative";
-  }
-
-  const playerBorder = document.createElement("div");
-  playerBorder.id = "youtube-engage-o-meter-player-border";
-  playerBorder.style.cssText = [
-    "position: absolute",
-    "inset: 0",
-    "box-sizing: border-box",
-    `border: 4px solid ${severityColor}`,
-    "border-radius: 0",
-    "pointer-events: none",
-    "z-index: 2147483647",
-  ].join(";");
-  player.append(playerBorder);
+  previousPlayerShellBorder = playerShell.style.border;
+  previousPlayerShellBoxSizing = playerShell.style.boxSizing;
+  previousPlayerShellBorderRadius = playerShell.style.borderRadius;
+  playerShell.style.boxSizing = "border-box";
+  playerShell.style.border = `4px solid ${severityColor}`;
+  playerShell.style.borderRadius = "0";
 }
 
 function renderEngagementWarning(videoId: string | undefined): boolean {
   const player = document.querySelector<HTMLElement>("#movie_player");
-  const playerContainer = document.querySelector<HTMLElement>("#player");
+  const playerShell = document.querySelector<HTMLElement>("ytd-player");
   const metadata = document.querySelector<HTMLElement>(
     "#below ytd-watch-metadata",
   );
@@ -451,7 +445,7 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
 
   if (
     !player ||
-    !playerContainer ||
+    !playerShell ||
     !metadata ||
     !insertionTarget ||
     !isWatchDomForVideo(videoId)
@@ -484,7 +478,7 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
     analysis,
     severity,
   );
-  renderPlayerBorder(player, severity);
+  renderPlayerBorder(playerShell, severity);
 
   return true;
 }
