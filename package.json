@@ -8,7 +8,8 @@
     "dev": "vite build --watch",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/engagement.test.js"
   },
   "keywords": [],
   "author": "",

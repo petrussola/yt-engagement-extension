@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowImportingTsExtensions": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": false,
+    "outDir": ".test-dist",
+    "rootDir": "src"
+  },
+  "include": ["src/engagement.ts", "src/engagement.test.ts"]
+}

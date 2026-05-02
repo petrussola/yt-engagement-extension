@@ -1,3 +1,15 @@
+import {
+  calculateEngagement,
+  getSeverityColor,
+  getSeverityTextColor,
+  getWarningSeverity,
+  getWarningText,
+  parseYouTubeCount,
+  parseYouTubeCountWithLabel,
+  type EngagementAnalysis,
+  type VisibleEngagementMetrics,
+} from "./engagement";
+
 function isYouTubeWatchPage(): boolean {
   const url = new URL(window.location.href);
 
@@ -14,96 +26,9 @@ let previousPlayerContainerPosition: string | undefined;
 let commentsRerenderTimeout: number | undefined;
 let forceWarningInterval: number | undefined;
 
-type VisibleEngagementMetrics = {
-  views?: number;
-  likes?: number;
-  comments?: number;
-};
-
-type EngagementClassification =
-  | "very-strong"
-  | "strong"
-  | "normal"
-  | "low"
-  | "suspiciously-low"
-  | "highly-unusual";
-
-type EngagementAnalysis = {
-  views: number;
-  likes: number;
-  comments?: number;
-  likeRate: number;
-  commentRate?: number;
-  engagementRate: number;
-  classification: EngagementClassification;
-  commentsUnavailable: boolean;
-};
-
 const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
-
-type WarningSeverity = Extract<
-  EngagementClassification,
-  "low" | "suspiciously-low" | "highly-unusual"
->;
-
-function parseYouTubeCount(
-  text: string | null | undefined,
-): number | undefined {
-  if (!text) {
-    return undefined;
-  }
-
-  const normalizedText = text.replace(/,/g, "").trim();
-  const countMatch = normalizedText.match(/(\d+(?:\.\d+)?)\s*([kmb])?/i);
-
-  if (!countMatch) {
-    return undefined;
-  }
-
-  const value = Number.parseFloat(countMatch[1]);
-  const suffix = countMatch[2]?.toLowerCase();
-  const multiplier =
-    suffix === "k"
-      ? 1_000
-      : suffix === "m"
-        ? 1_000_000
-        : suffix === "b"
-          ? 1_000_000_000
-          : 1;
-
-  return Math.round(value * multiplier);
-}
-
-function parseYouTubeCountWithLabel(
-  text: string | null | undefined,
-  label: "views" | "comments",
-): number | undefined {
-  if (!text) {
-    return undefined;
-  }
-
-  const normalizedText = text.replace(/,/g, "").replace(/\s+/g, " ").trim();
-  const countMatch = normalizedText.match(
-    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*([kmb])?\\s+${label}`, "i"),
-  );
-
-  if (!countMatch) {
-    return undefined;
-  }
-
-  const value = Number.parseFloat(countMatch[1]);
-  const suffix = countMatch[2]?.toLowerCase();
-  const multiplier =
-    suffix === "k"
-      ? 1_000
-      : suffix === "m"
-        ? 1_000_000
-        : suffix === "b"
-          ? 1_000_000_000
-          : 1;
-
-  return Math.round(value * multiplier);
-}
+const METHODOLOGY_URL =
+  "https://github.com/petrussola/engageguard#classification";
 
 function getElementTextOrLabel(element: Element | null): string | undefined {
   if (!element) {
@@ -154,58 +79,6 @@ function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
   };
 }
 
-function classifyEngagement(engagementRate: number): EngagementClassification {
-  if (engagementRate >= 0.045) {
-    return "very-strong";
-  }
-
-  if (engagementRate >= 0.035) {
-    return "strong";
-  }
-
-  if (engagementRate >= 0.025) {
-    return "normal";
-  }
-
-  if (engagementRate >= 0.01) {
-    return "low";
-  }
-
-  if (engagementRate >= 0.005) {
-    return "suspiciously-low";
-  }
-
-  return "highly-unusual";
-}
-
-function calculateEngagement(
-  metrics: VisibleEngagementMetrics,
-): EngagementAnalysis | undefined {
-  if (!metrics.views || !metrics.likes || metrics.views < 1_000) {
-    return undefined;
-  }
-
-  const commentsUnavailable = metrics.comments === undefined;
-  const likeRate = metrics.likes / metrics.views;
-  const commentRate = commentsUnavailable
-    ? undefined
-    : metrics.comments / metrics.views;
-  const engagementRate = commentsUnavailable
-    ? likeRate
-    : (metrics.likes + metrics.comments) / metrics.views;
-
-  return {
-    views: metrics.views,
-    likes: metrics.likes,
-    comments: metrics.comments,
-    likeRate,
-    commentRate,
-    engagementRate,
-    classification: classifyEngagement(engagementRate),
-    commentsUnavailable,
-  };
-}
-
 function isForceWarningEnabled(): boolean {
   return window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true";
 }
@@ -219,53 +92,6 @@ function getFallbackAnalysisForBypass(): EngagementAnalysis {
     classification: "suspiciously-low",
     commentsUnavailable: true,
   };
-}
-
-function getWarningSeverity(
-  classification: EngagementClassification,
-): WarningSeverity | undefined {
-  if (
-    classification === "low" ||
-    classification === "suspiciously-low" ||
-    classification === "highly-unusual"
-  ) {
-    return classification;
-  }
-
-  return undefined;
-}
-
-function formatPercent(rate: number): string {
-  return `${(rate * 100).toFixed(1)}%`;
-}
-
-function getSeverityColor(severity: WarningSeverity): string {
-  if (severity === "highly-unusual") {
-    return "#dc2626";
-  }
-
-  if (severity === "suspiciously-low") {
-    return "#ea580c";
-  }
-
-  return "#f59e0b";
-}
-
-function getSeverityTextColor(severity: WarningSeverity): string {
-  return severity === "low" ? "#431407" : "#ffffff";
-}
-
-function getWarningText(analysis: EngagementAnalysis): string {
-  const engagementText = `Engagement: ${formatPercent(analysis.engagementRate)}`;
-
-  if (analysis.commentsUnavailable) {
-    return [
-      `This video has unusually low visible engagement for its view count · ${engagementText}`,
-      "Comments unavailable; using likes/views only.",
-    ].join("\n");
-  }
-
-  return `This video has unusually low likes/comments for its view count · ${engagementText}`;
 }
 
 function renderEngagementWarning(): boolean {
@@ -311,19 +137,39 @@ function renderEngagementWarning(): boolean {
   const severityTextColor = getSeverityTextColor(severity);
   const warning = document.createElement("div");
   warning.id = "engageguard-warning";
-  warning.textContent = getWarningText(analysis);
   warning.style.cssText = [
     "box-sizing: border-box",
     "width: 100%",
     "margin: -12px 0 8px",
     "padding: 6px 10px",
+    "display: flex",
+    "align-items: center",
+    "gap: 12px",
     `background: ${severityColor}`,
     "border: 0",
     `color: ${severityTextColor}`,
-    "font: 700 14px/1.35 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "font: 700 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     "white-space: pre-line",
   ].join(";");
 
+  const warningMessage = document.createElement("span");
+  warningMessage.textContent = getWarningText(analysis);
+  warningMessage.style.cssText = ["min-width: 0", "flex: 1"].join(";");
+
+  const methodologyLink = document.createElement("a");
+  methodologyLink.href = METHODOLOGY_URL;
+  methodologyLink.target = "_blank";
+  methodologyLink.rel = "noopener noreferrer";
+  methodologyLink.textContent = "Methodology";
+  methodologyLink.style.cssText = [
+    "flex: 0 0 auto",
+    `color: ${severityTextColor}`,
+    "font: inherit",
+    "text-decoration: underline",
+    "text-underline-offset: 2px",
+  ].join(";");
+
+  warning.append(warningMessage, methodologyLink);
   metadata.before(warning);
 
   previousPlayerContainerPosition = playerContainer.style.position;

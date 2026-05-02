@@ -112,13 +112,3 @@ localStorage.removeItem("engageguard:forceWarning");
 
 The bypass is for development only and should be removed or hidden before a
 polished release.
-
-## Project Structure
-
-```text
-manifest.json          Chrome extension manifest
-src/content.ts         YouTube page detector, metric extraction, scoring, warning UI
-src/popup/             Minimal extension popup
-vite.config.ts         Build config and manifest copy step
-plan/mvp.md            MVP plan and implementation roadmap
-```
