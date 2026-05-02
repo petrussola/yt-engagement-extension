@@ -2,6 +2,7 @@ export type VisibleEngagementMetrics = {
   views?: number;
   likes?: number;
   comments?: number;
+  ageDays?: number;
 };
 
 export type EngagementClassification =
@@ -14,12 +15,15 @@ export type EngagementClassification =
 
 export type EngagementAnalysis = {
   views: number;
-  likes: number;
+  likes?: number;
   comments?: number;
-  likeRate: number;
+  likeRate?: number;
   commentRate?: number;
   engagementRate: number;
   classification: EngagementClassification;
+  ageDays?: number;
+  ageGateActive: boolean;
+  likesUnavailable: boolean;
   commentsUnavailable: boolean;
   signalConfidence: "standard" | "limited";
 };
@@ -30,6 +34,7 @@ export type WarningSeverity = Extract<
 >;
 
 const MIN_ANALYZABLE_VIEWS = 1_000;
+const MIN_WARNING_AGE_DAYS = 3;
 
 function getCountMultiplier(suffix: string | undefined): number {
   if (suffix === "k") {
@@ -67,6 +72,20 @@ export function parseYouTubeCount(
   return Math.round(value * getCountMultiplier(suffix));
 }
 
+export function parseFirstYouTubeCount(
+  texts: Array<string | null | undefined>,
+): number | undefined {
+  for (const text of texts) {
+    const count = parseYouTubeCount(text);
+
+    if (count !== undefined) {
+      return count;
+    }
+  }
+
+  return undefined;
+}
+
 export function parseYouTubeCountWithLabel(
   text: string | null | undefined,
   label: "views" | "comments",
@@ -88,6 +107,59 @@ export function parseYouTubeCountWithLabel(
   const suffix = countMatch[2]?.toLowerCase();
 
   return Math.round(value * getCountMultiplier(suffix));
+}
+
+export function parseFirstYouTubeCountWithLabel(
+  texts: Array<string | null | undefined>,
+  label: "views" | "comments",
+): number | undefined {
+  for (const text of texts) {
+    const count = parseYouTubeCountWithLabel(text, label);
+
+    if (count !== undefined) {
+      return count;
+    }
+  }
+
+  return undefined;
+}
+
+export function parseYouTubeAgeDays(
+  text: string | null | undefined,
+): number | undefined {
+  if (!text) {
+    return undefined;
+  }
+
+  const normalizedText = text.replace(/\s+/g, " ").trim();
+  const ageMatch = normalizedText.match(
+    /(\d+(?:\.\d+)?)\s+(second|minute|hour|day|week|month|year)s?\s+ago/i,
+  );
+
+  if (!ageMatch) {
+    return undefined;
+  }
+
+  const value = Number.parseFloat(ageMatch[1]);
+  const unit = ageMatch[2].toLowerCase();
+
+  if (unit === "second" || unit === "minute" || unit === "hour") {
+    return 0;
+  }
+
+  if (unit === "day") {
+    return value;
+  }
+
+  if (unit === "week") {
+    return value * 7;
+  }
+
+  if (unit === "month") {
+    return value * 30;
+  }
+
+  return value * 365;
 }
 
 export function classifyEngagement(
@@ -121,42 +193,50 @@ export function calculateEngagement(
 ): EngagementAnalysis | undefined {
   if (
     metrics.views === undefined ||
-    metrics.likes === undefined ||
-    metrics.views < MIN_ANALYZABLE_VIEWS
+    metrics.views < MIN_ANALYZABLE_VIEWS ||
+    (metrics.likes === undefined && metrics.comments === undefined)
   ) {
     return undefined;
   }
 
+  const likes = metrics.likes;
   const comments = metrics.comments;
+  const likesUnavailable = likes === undefined;
   const commentsUnavailable = comments === undefined;
-  const likeRate = metrics.likes / metrics.views;
+  const likeRate = likes === undefined ? undefined : likes / metrics.views;
   const commentRate =
     comments === undefined ? undefined : comments / metrics.views;
-  const engagementRate = commentsUnavailable
-    ? likeRate
-    : (metrics.likes + comments) / metrics.views;
+  const engagementRate = ((likes ?? 0) + (comments ?? 0)) / metrics.views;
+  const ageGateActive =
+    metrics.ageDays !== undefined && metrics.ageDays < MIN_WARNING_AGE_DAYS;
 
   return {
     views: metrics.views,
-    likes: metrics.likes,
+    likes,
     comments: metrics.comments,
     likeRate,
     commentRate,
     engagementRate,
     classification: classifyEngagement(engagementRate),
+    ageDays: metrics.ageDays,
+    ageGateActive,
+    likesUnavailable,
     commentsUnavailable,
-    signalConfidence: commentsUnavailable ? "limited" : "standard",
+    signalConfidence:
+      likesUnavailable || commentsUnavailable || ageGateActive
+        ? "limited"
+        : "standard",
   };
 }
 
 export function getWarningSeverity(
-  analysis: Pick<EngagementAnalysis, "classification" | "commentsUnavailable">,
+  analysis: Pick<EngagementAnalysis, "ageGateActive" | "classification">,
 ): WarningSeverity | undefined {
-  const { classification, commentsUnavailable } = analysis;
-
-  if (commentsUnavailable && classification === "low") {
+  if (analysis.ageGateActive) {
     return undefined;
   }
+
+  const { classification } = analysis;
 
   if (
     classification === "low" ||
@@ -191,6 +271,13 @@ export function getSeverityTextColor(severity: WarningSeverity): string {
 
 export function getWarningText(analysis: EngagementAnalysis): string {
   const engagementText = `Engagement: ${formatPercent(analysis.engagementRate)}`;
+
+  if (analysis.likesUnavailable) {
+    return [
+      `This video has unusually low visible engagement for its view count · ${engagementText}`,
+      "Likes unavailable; using comments/views as a lower-bound signal.",
+    ].join("\n");
+  }
 
   if (analysis.commentsUnavailable) {
     return [

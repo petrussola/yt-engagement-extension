@@ -11,6 +11,8 @@ It is an anomaly signal, not a fraud detector. The extension does not claim that
 - Calculates visible engagement from views, likes, and comments when available.
 - Shows an in-page warning only for low-engagement classifications.
 - Adds a colored border to the player while a warning is active.
+- In debug mode, shows the parsed counts and calculation for every analyzed
+  video, using green for videos that pass the threshold.
 - Does not send data outside the browser.
 - Does not use the YouTube Data API.
 
@@ -30,11 +32,21 @@ When comments are not available yet:
 engagementRate = likes / views;
 ```
 
-That score is treated as a lower-confidence lower-bound signal because visible
-comments may lift the final engagement rate after YouTube loads the comments
-section.
+When likes are not available but comments are:
 
-Videos with missing views or likes are not analyzed. Videos under `1,000` views are currently treated as insufficient data.
+```ts
+engagementRate = comments / views;
+```
+
+That score is treated as a lower-confidence lower-bound signal because visible
+likes or comments may lift the final engagement rate after YouTube exposes the
+missing count.
+
+Videos with missing views, or with neither likes nor comments, are not analyzed.
+Videos under `1,000` views are currently treated as insufficient data.
+Videos with a parsed age under `3` days are treated as too new for normal
+warnings. Debug mode still shows the calculation and marks the age gate as
+active.
 
 ## Classification
 
@@ -46,9 +58,6 @@ Videos with missing views or likes are not analyzed. Videos under `1,000` views 
 | Low              |   `1.0% - 2.5%` | Warning |
 | Suspiciously low |   `0.5% - 1.0%` | Warning |
 | Highly unusual   |        `< 0.5%` | Warning |
-
-When comments are unavailable, the extension suppresses the `Low` warning and
-only warns for `Suspiciously low` or `Highly unusual` likes/views signals.
 
 The warning copy intentionally uses calm language, for example:
 
@@ -103,19 +112,21 @@ npm run dev
 
 If you rebuild, reload the extension in `chrome://extensions` and refresh the YouTube tab.
 
-## Dev Bypass
+## Debug Mode
 
-For visual testing, force the warning UI from the YouTube page console:
+To show parsed counts and the exact engagement calculation in the banner:
 
 ```js
-localStorage.setItem("engageguard:forceWarning", "true");
+localStorage.setItem("engageguard:debugDetails", "true");
 ```
+
+Debug mode shows the banner for every analyzed video. Passing videos use a green
+banner and border, while warning-level videos keep the warning color.
 
 Disable it:
 
 ```js
-localStorage.removeItem("engageguard:forceWarning");
+localStorage.removeItem("engageguard:debugDetails");
 ```
 
-The bypass is for development only and should be removed or hidden before a
-polished release.
+Debug mode is for development and manual verification.

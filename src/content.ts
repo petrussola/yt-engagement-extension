@@ -1,13 +1,15 @@
 import {
   calculateEngagement,
-  getSeverityColor,
-  getSeverityTextColor,
   getWarningSeverity,
   getWarningText,
+  parseFirstYouTubeCount,
+  parseFirstYouTubeCountWithLabel,
   parseYouTubeCount,
+  parseYouTubeAgeDays,
   parseYouTubeCountWithLabel,
   type EngagementAnalysis,
   type VisibleEngagementMetrics,
+  type WarningSeverity,
 } from "./engagement";
 
 function isYouTubeWatchPage(): boolean {
@@ -29,6 +31,7 @@ let commentsCountRetryTimeout: number | undefined;
 let currentVideoId: string | undefined;
 
 const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
+const DEBUG_DETAILS_STORAGE_KEY = "engageguard:debugDetails";
 const METHODOLOGY_URL =
   "https://github.com/petrussola/engageguard#classification";
 const WATCH_DOM_RETRY_LIMIT = 40;
@@ -43,6 +46,18 @@ const VIEW_COUNT_SELECTORS = [
   "ytd-watch-metadata ytd-watch-info-text",
   "ytd-watch-metadata #bottom-row",
 ];
+type PageEngagementAnalysis = {
+  metrics: VisibleEngagementMetrics;
+  debugSources: EngagementDebugSources;
+  analysis?: EngagementAnalysis;
+};
+type EngagementDebugSources = {
+  age: string[];
+  views: string[];
+  likes: string[];
+  comments: string[];
+};
+type BannerSeverity = WarningSeverity | "passing";
 
 function getElementTextOrLabel(
   element: Element | null | undefined,
@@ -59,6 +74,28 @@ function getElementTextOrLabel(
   );
 }
 
+function getElementCountCandidateTexts(
+  element: Element | null | undefined,
+): Array<string | null | undefined> {
+  if (!element) {
+    return [];
+  }
+
+  return [
+    element.getAttribute("aria-label"),
+    element.getAttribute("title"),
+    element.textContent,
+  ];
+}
+
+function compactDebugSources(
+  texts: Array<string | null | undefined>,
+): string[] {
+  return texts
+    .map((text) => text?.replace(/\s+/g, " ").trim())
+    .filter((text): text is string => text !== undefined && text.length > 0);
+}
+
 function getFirstElementTextOrLabel(selectors: string[]): string | undefined {
   return selectors
     .map((selector) =>
@@ -68,32 +105,66 @@ function getFirstElementTextOrLabel(selectors: string[]): string | undefined {
 }
 
 function findLikeButton(): HTMLButtonElement | undefined {
-  return Array.from(document.querySelectorAll("button")).find((button) => {
+  const buttons = Array.from(document.querySelectorAll("button"));
+  const likeButton = buttons.find((button) => {
     const label = button.getAttribute("aria-label") ?? "";
 
-    return /like this video/i.test(label);
+    return /like/i.test(label) && !/dislike/i.test(label);
   });
+
+  if (likeButton) {
+    return likeButton;
+  }
+
+  const segmentedLikeButton = document.querySelector<HTMLButtonElement>(
+    "segmented-like-dislike-button-view-model button",
+  );
+
+  if (segmentedLikeButton) {
+    return segmentedLikeButton;
+  }
+
+  return document.querySelector<HTMLButtonElement>(
+    "like-button-view-model button",
+  );
 }
 
-function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
+function extractVisibleEngagementMetrics(): {
+  debugSources: EngagementDebugSources;
+  metrics: VisibleEngagementMetrics;
+} {
   const likeButton = findLikeButton();
   const commentCountElement = document.querySelector(
     "#comments #count yt-formatted-string, #comments #count",
   );
   const viewCountText = getFirstElementTextOrLabel(VIEW_COUNT_SELECTORS);
-  const commentCountText = getElementTextOrLabel(commentCountElement);
+  const likeCountTexts = getElementCountCandidateTexts(likeButton);
+  const commentCountTexts = getElementCountCandidateTexts(commentCountElement);
 
   return {
-    views:
-      parseYouTubeCountWithLabel(viewCountText, "views") ??
-      parseYouTubeCount(viewCountText),
-    likes: parseYouTubeCount(getElementTextOrLabel(likeButton)),
-    comments: parseYouTubeCountWithLabel(commentCountText, "comments"),
+    debugSources: {
+      age: compactDebugSources([viewCountText]),
+      views: compactDebugSources([viewCountText]),
+      likes: compactDebugSources(likeCountTexts),
+      comments: compactDebugSources(commentCountTexts),
+    },
+    metrics: {
+      views:
+        parseYouTubeCountWithLabel(viewCountText, "views") ??
+        parseYouTubeCount(viewCountText),
+      likes: parseFirstYouTubeCount(likeCountTexts),
+      comments: parseFirstYouTubeCountWithLabel(commentCountTexts, "comments"),
+      ageDays: parseYouTubeAgeDays(viewCountText),
+    },
   };
 }
 
 function isForceWarningEnabled(): boolean {
   return window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true";
+}
+
+function isDebugDetailsEnabled(): boolean {
+  return window.localStorage.getItem(DEBUG_DETAILS_STORAGE_KEY) === "true";
 }
 
 function getWatchVideoId(): string | undefined {
@@ -149,13 +220,15 @@ function getFallbackAnalysisForBypass(): EngagementAnalysis {
     likeRate: 0.008,
     engagementRate: 0.008,
     classification: "suspiciously-low",
+    ageGateActive: false,
+    likesUnavailable: false,
     commentsUnavailable: true,
     signalConfidence: "limited",
   };
 }
 
-function getAnalysisForCurrentPage(): EngagementAnalysis | undefined {
-  const metrics = extractVisibleEngagementMetrics();
+function getAnalysisForCurrentPage(): PageEngagementAnalysis {
+  const { metrics, debugSources } = extractVisibleEngagementMetrics();
   const forceWarning = isForceWarningEnabled();
   const analysis =
     calculateEngagement(metrics) ??
@@ -164,16 +237,110 @@ function getAnalysisForCurrentPage(): EngagementAnalysis | undefined {
   console.debug("EngageGuard visible engagement metrics", metrics);
   console.debug("EngageGuard engagement analysis", analysis);
 
-  return analysis;
+  return { metrics, debugSources, analysis };
+}
+
+function formatDebugCount(count: number | undefined): string {
+  return count === undefined ? "missing" : count.toLocaleString("en-US");
+}
+
+function getDebugCalculationText(analysis: EngagementAnalysis): string {
+  const engagementPercent = (analysis.engagementRate * 100).toFixed(4);
+
+  if (analysis.commentsUnavailable) {
+    return `${formatDebugCount(analysis.likes)} / ${formatDebugCount(analysis.views)} = ${analysis.engagementRate} (${engagementPercent}%)`;
+  }
+
+  if (analysis.likesUnavailable) {
+    return `${formatDebugCount(analysis.comments)} / ${formatDebugCount(analysis.views)} = ${analysis.engagementRate} (${engagementPercent}%)`;
+  }
+
+  return `(${formatDebugCount(analysis.likes)} + ${formatDebugCount(analysis.comments)}) / ${formatDebugCount(analysis.views)} = ${analysis.engagementRate} (${engagementPercent}%)`;
+}
+
+function getDebugText(
+  metrics: VisibleEngagementMetrics,
+  debugSources: EngagementDebugSources,
+  analysis: EngagementAnalysis | undefined,
+): string {
+  const comments = formatDebugCount(metrics.comments);
+  const sourceDetails = [
+    `Sources: views=[${debugSources.views.join(" | ")}]`,
+    `age=[${debugSources.age.join(" | ")}]`,
+    `likes=[${debugSources.likes.join(" | ")}]`,
+    `comments=[${debugSources.comments.join(" | ")}]`,
+  ].join("; ");
+  const formula =
+    metrics.likes === undefined && metrics.comments !== undefined
+      ? "comments / views"
+      : metrics.comments === undefined
+        ? "likes / views"
+        : "(likes + comments) / views";
+
+  if (!analysis) {
+    return [
+      "EngageGuard debug",
+      `Parsed: views=${formatDebugCount(metrics.views)}, likes=${formatDebugCount(metrics.likes)}, comments=${comments}`,
+      sourceDetails,
+      "Result: not enough parsed data to calculate engagement",
+    ].join("\n");
+  }
+
+  return [
+    "EngageGuard debug",
+    `Parsed: views=${formatDebugCount(analysis.views)}, likes=${formatDebugCount(analysis.likes)}, comments=${comments}`,
+    sourceDetails,
+    `Formula: ${formula}`,
+    `Calculation: ${getDebugCalculationText(analysis)}`,
+    `Age: ${analysis.ageDays === undefined ? "missing" : `${analysis.ageDays} days`}; ageGate=${analysis.ageGateActive ? "active" : "inactive"}`,
+    `Classification: ${analysis.classification}; confidence=${analysis.signalConfidence}`,
+  ].join("\n");
+}
+
+function getBannerColor(severity: BannerSeverity): string {
+  if (severity === "passing") {
+    return "#16a34a";
+  }
+
+  if (severity === "highly-unusual") {
+    return "#dc2626";
+  }
+
+  if (severity === "suspiciously-low") {
+    return "#ea580c";
+  }
+
+  return "#f59e0b";
+}
+
+function getBannerTextColor(severity: BannerSeverity): string {
+  return severity === "low" ? "#431407" : "#ffffff";
+}
+
+function getDebugBannerMessage(
+  analysis: EngagementAnalysis | undefined,
+): string {
+  if (!analysis) {
+    return "EngageGuard debug · no engagement score available";
+  }
+
+  if (getWarningSeverity(analysis)) {
+    return getWarningText(analysis);
+  }
+
+  return `EngageGuard debug · engagement passes threshold · Engagement: ${(analysis.engagementRate * 100).toFixed(1)}%`;
 }
 
 function renderWarningBanner(
   metadata: HTMLElement,
-  analysis: EngagementAnalysis,
-  severity: NonNullable<ReturnType<typeof getWarningSeverity>>,
+  metrics: VisibleEngagementMetrics,
+  debugSources: EngagementDebugSources,
+  analysis: EngagementAnalysis | undefined,
+  severity: BannerSeverity,
 ): void {
-  const severityColor = getSeverityColor(severity);
-  const severityTextColor = getSeverityTextColor(severity);
+  const debugDetails = isDebugDetailsEnabled();
+  const severityColor = getBannerColor(severity);
+  const severityTextColor = getBannerTextColor(severity);
   const warning = document.createElement("div");
   warning.id = "engageguard-warning";
   warning.style.cssText = [
@@ -192,7 +359,11 @@ function renderWarningBanner(
   ].join(";");
 
   const warningMessage = document.createElement("span");
-  warningMessage.textContent = getWarningText(analysis);
+  warningMessage.textContent = debugDetails
+    ? getDebugBannerMessage(analysis)
+    : analysis
+      ? getWarningText(analysis)
+      : "EngageGuard debug · no engagement score available";
   warningMessage.style.cssText = ["min-width: 0", "flex: 1"].join(";");
 
   const methodologyLink = document.createElement("a");
@@ -208,15 +379,41 @@ function renderWarningBanner(
     "text-underline-offset: 2px",
   ].join(";");
 
-  warning.append(warningMessage, methodologyLink);
+  const textContainer = document.createElement("span");
+  textContainer.style.cssText = [
+    "min-width: 0",
+    "flex: 1",
+    "display: flex",
+    "flex-direction: column",
+    "gap: 4px",
+  ].join(";");
+  textContainer.append(warningMessage);
+
+  if (debugDetails) {
+    const debugDetailsText = document.createElement("code");
+    debugDetailsText.textContent = getDebugText(
+      metrics,
+      debugSources,
+      analysis,
+    );
+    debugDetailsText.style.cssText = [
+      "display: block",
+      "font: 500 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+      "white-space: pre-wrap",
+      "opacity: 0.95",
+    ].join(";");
+    textContainer.append(debugDetailsText);
+  }
+
+  warning.append(textContainer, methodologyLink);
   metadata.before(warning);
 }
 
 function renderPlayerBorder(
   playerContainer: HTMLElement,
-  severity: NonNullable<ReturnType<typeof getWarningSeverity>>,
+  severity: BannerSeverity,
 ): void {
-  const severityColor = getSeverityColor(severity);
+  const severityColor = getBannerColor(severity);
 
   previousPlayerContainerPosition = playerContainer.style.position;
   if (!playerContainer.style.position) {
@@ -255,21 +452,23 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
 
   cleanupEngageGuardUi();
 
-  const analysis = getAnalysisForCurrentPage();
+  const { metrics, debugSources, analysis } = getAnalysisForCurrentPage();
 
-  if (!analysis) {
+  if (!analysis && !isDebugDetailsEnabled()) {
     return false;
   }
 
   const severity =
-    getWarningSeverity(analysis) ??
-    (isForceWarningEnabled() ? "suspiciously-low" : undefined);
+    (analysis ? getWarningSeverity(analysis) : undefined) ??
+    (isForceWarningEnabled() || isDebugDetailsEnabled()
+      ? "passing"
+      : undefined);
 
   if (!severity) {
     return true;
   }
 
-  renderWarningBanner(metadata, analysis, severity);
+  renderWarningBanner(metadata, metrics, debugSources, analysis, severity);
   renderPlayerBorder(playerContainer, severity);
 
   return true;
@@ -295,15 +494,21 @@ function waitForWatchDomAndInject(videoId = currentVideoId, attempt = 1): void {
 function watchForceWarningBypass(): void {
   window.clearInterval(forceWarningInterval);
   let wasForceWarningEnabled = isForceWarningEnabled();
+  let wasDebugDetailsEnabled = isDebugDetailsEnabled();
 
   forceWarningInterval = window.setInterval(() => {
     const forceWarningEnabled = isForceWarningEnabled();
+    const debugDetailsEnabled = isDebugDetailsEnabled();
 
-    if (forceWarningEnabled && !wasForceWarningEnabled) {
+    if (
+      (forceWarningEnabled && !wasForceWarningEnabled) ||
+      debugDetailsEnabled !== wasDebugDetailsEnabled
+    ) {
       waitForWatchDomAndInject();
     }
 
     wasForceWarningEnabled = forceWarningEnabled;
+    wasDebugDetailsEnabled = debugDetailsEnabled;
   }, FORCE_WARNING_POLL_DELAY_MS);
 }
 
@@ -325,10 +530,12 @@ function watchCommentsCount(): void {
     window.clearTimeout(commentsRerenderTimeout);
 
     commentsRerenderTimeout = window.setTimeout(() => {
-      const commentCountText = getElementTextOrLabel(commentsCountElement);
+      const commentCountTexts =
+        getElementCountCandidateTexts(commentsCountElement);
 
       if (
-        parseYouTubeCountWithLabel(commentCountText, "comments") !== undefined
+        parseFirstYouTubeCountWithLabel(commentCountTexts, "comments") !==
+        undefined
       ) {
         waitForWatchDomAndInject();
         commentsObserver?.disconnect();
