@@ -282,7 +282,7 @@ export function getWarningText(analysis: EngagementAnalysis): string {
   if (analysis.commentsUnavailable) {
     return [
       `This video has unusually low visible engagement for its view count · ${engagementText}`,
-      "Comments unavailable; using likes/views as a lower-bound signal.",
+      "Comment count not available; using likes/views as a lower-bound signal.",
     ].join("\n");
   }
 

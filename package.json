@@ -1,7 +1,7 @@
 {
-  "name": "engageguard",
+  "name": "youtube-engage-o-meter",
   "version": "1.0.0",
-  "description": "",
+  "description": "Chrome extension that highlights YouTube videos with unusually low visible engagement for their view count.",
   "type": "module",
   "scripts": {
     "build": "vite build",

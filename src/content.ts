@@ -23,17 +23,17 @@ function isYouTubeWatchPage(): boolean {
 }
 
 let commentsObserver: MutationObserver | undefined;
-let previousPlayerContainerPosition: string | undefined;
+let previousPlayerPosition: string | undefined;
 let commentsRerenderTimeout: number | undefined;
 let forceWarningInterval: number | undefined;
 let watchDomRetryTimeout: number | undefined;
 let commentsCountRetryTimeout: number | undefined;
 let currentVideoId: string | undefined;
 
-const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
-const DEBUG_DETAILS_STORAGE_KEY = "engageguard:debugDetails";
+const FORCE_WARNING_STORAGE_KEY = "youtube-engage-o-meter:forceWarning";
+const DEBUG_DETAILS_STORAGE_KEY = "youtube-engage-o-meter:debugDetails";
 const METHODOLOGY_URL =
-  "https://github.com/petrussola/engageguard#classification";
+  "https://github.com/petrussola/youtube-engage-o-meter#classification";
 const WATCH_DOM_RETRY_LIMIT = 40;
 const WATCH_DOM_RETRY_DELAY_MS = 250;
 const COMMENT_COUNT_RETRY_DELAY_MS = 1_000;
@@ -198,18 +198,18 @@ function clearScheduledWork(): void {
   window.clearTimeout(commentsRerenderTimeout);
 }
 
-function cleanupEngageGuardUi(): void {
-  document.querySelector("#engageguard-warning")?.remove();
-  document.querySelector("#engageguard-player-border")?.remove();
+function cleanupYouTubeEngageOMeterUi(): void {
+  document.querySelector("#youtube-engage-o-meter-warning")?.remove();
+  document.querySelector("#youtube-engage-o-meter-player-border")?.remove();
 
-  if (previousPlayerContainerPosition !== undefined) {
-    const playerContainer = document.querySelector<HTMLElement>("#player");
+  if (previousPlayerPosition !== undefined) {
+    const player = document.querySelector<HTMLElement>("#movie_player");
 
-    if (playerContainer) {
-      playerContainer.style.position = previousPlayerContainerPosition;
+    if (player) {
+      player.style.position = previousPlayerPosition;
     }
 
-    previousPlayerContainerPosition = undefined;
+    previousPlayerPosition = undefined;
   }
 }
 
@@ -276,7 +276,7 @@ function getDebugText(
 
   if (!analysis) {
     return [
-      "EngageGuard debug",
+      "YouTube Engage-o-meter debug",
       `Parsed: views=${formatDebugCount(metrics.views)}, likes=${formatDebugCount(metrics.likes)}, comments=${comments}`,
       sourceDetails,
       "Result: not enough parsed data to calculate engagement",
@@ -284,7 +284,7 @@ function getDebugText(
   }
 
   return [
-    "EngageGuard debug",
+    "YouTube Engage-o-meter debug",
     `Parsed: views=${formatDebugCount(analysis.views)}, likes=${formatDebugCount(analysis.likes)}, comments=${comments}`,
     sourceDetails,
     `Formula: ${formula}`,
@@ -318,14 +318,14 @@ function getDebugBannerMessage(
   analysis: EngagementAnalysis | undefined,
 ): string {
   if (!analysis) {
-    return "EngageGuard debug · no engagement score available";
+    return "YouTube Engage-o-meter debug · no engagement score available";
   }
 
   if (getWarningSeverity(analysis)) {
     return getWarningText(analysis);
   }
 
-  return `EngageGuard debug · engagement passes threshold · Engagement: ${(analysis.engagementRate * 100).toFixed(1)}%`;
+  return `YouTube Engage-o-meter debug · engagement passes threshold · Engagement: ${(analysis.engagementRate * 100).toFixed(1)}%`;
 }
 
 function renderWarningBanner(
@@ -339,20 +339,22 @@ function renderWarningBanner(
   const severityColor = getBannerColor(severity);
   const severityTextColor = getBannerTextColor(severity);
   const warning = document.createElement("div");
-  warning.id = "engageguard-warning";
+  warning.id = "youtube-engage-o-meter-warning";
   warning.style.cssText = [
     "box-sizing: border-box",
     "width: 100%",
-    "margin: -12px 0 8px",
-    "padding: 6px 10px",
+    "margin: 0 0 8px",
+    "padding: 10px 14px",
     "display: flex",
-    "align-items: center",
+    "align-items: flex-start",
     "gap: 12px",
     `background: ${severityColor}`,
     "border: 0",
     `color: ${severityTextColor}`,
-    "font: 700 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    "white-space: pre-line",
+    "font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    "font-size: 14px",
+    "font-weight: 700",
+    "line-height: 1.5",
   ].join(";");
 
   const warningMessage = document.createElement("span");
@@ -360,8 +362,14 @@ function renderWarningBanner(
     ? getDebugBannerMessage(analysis)
     : analysis
       ? getWarningText(analysis)
-      : "EngageGuard debug · no engagement score available";
-  warningMessage.style.cssText = ["min-width: 0", "flex: 1"].join(";");
+      : "YouTube Engage-o-meter debug · no engagement score available";
+  warningMessage.style.cssText = [
+    "display: block",
+    "min-width: 0",
+    "overflow: visible",
+    "white-space: normal",
+    "overflow-wrap: anywhere",
+  ].join(";");
 
   const methodologyLink = document.createElement("a");
   methodologyLink.href = METHODOLOGY_URL;
@@ -407,18 +415,18 @@ function renderWarningBanner(
 }
 
 function renderPlayerBorder(
-  playerContainer: HTMLElement,
+  player: HTMLElement,
   severity: BannerSeverity,
 ): void {
   const severityColor = getBannerColor(severity);
 
-  previousPlayerContainerPosition = playerContainer.style.position;
-  if (!playerContainer.style.position) {
-    playerContainer.style.position = "relative";
+  previousPlayerPosition = player.style.position;
+  if (!player.style.position) {
+    player.style.position = "relative";
   }
 
   const playerBorder = document.createElement("div");
-  playerBorder.id = "engageguard-player-border";
+  playerBorder.id = "youtube-engage-o-meter-player-border";
   playerBorder.style.cssText = [
     "position: absolute",
     "inset: 0",
@@ -426,9 +434,9 @@ function renderPlayerBorder(
     `border: 4px solid ${severityColor}`,
     "border-radius: 0",
     "pointer-events: none",
-    "z-index: 1",
+    "z-index: 2147483647",
   ].join(";");
-  playerContainer.append(playerBorder);
+  player.append(playerBorder);
 }
 
 function renderEngagementWarning(videoId: string | undefined): boolean {
@@ -451,7 +459,7 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
     return false;
   }
 
-  cleanupEngageGuardUi();
+  cleanupYouTubeEngageOMeterUi();
 
   const { metrics, debugSources, analysis } = getAnalysisForCurrentPage();
 
@@ -476,7 +484,7 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
     analysis,
     severity,
   );
-  renderPlayerBorder(playerContainer, severity);
+  renderPlayerBorder(player, severity);
 
   return true;
 }
@@ -562,7 +570,7 @@ function initializeCurrentWatchPage(): void {
 
   clearScheduledWork();
   commentsObserver?.disconnect();
-  cleanupEngageGuardUi();
+  cleanupYouTubeEngageOMeterUi();
 
   if (!videoId || !isYouTubeWatchPage()) {
     return;

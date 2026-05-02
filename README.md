@@ -1,6 +1,6 @@
-# EngageGuard
+# YouTube Engage-o-meter
 
-EngageGuard is a Chrome extension that highlights YouTube videos whose visible public engagement looks unusually low for their view count.
+YouTube Engage-o-meter is a Chrome extension that highlights YouTube videos whose visible public engagement looks unusually low for their view count.
 
 It is an anomaly signal, not a fraud detector. The extension does not claim that a video bought views, used bots, or manipulated engagement.
 
@@ -63,7 +63,7 @@ The warning copy intentionally uses calm language, for example:
 
 ```text
 This video has unusually low visible engagement for its view count · Engagement: 0.8%
-Comments unavailable; using likes/views as a lower-bound signal.
+Comment count not available; using likes/views as a lower-bound signal.
 ```
 
 ## Current Limitations
@@ -117,7 +117,7 @@ If you rebuild, reload the extension in `chrome://extensions` and refresh the Yo
 To show parsed counts and the exact engagement calculation in the banner:
 
 ```js
-localStorage.setItem("engageguard:debugDetails", "true");
+localStorage.setItem("youtube-engage-o-meter:debugDetails", "true");
 ```
 
 Debug mode shows the banner for every analyzed video. Passing videos use a green
@@ -126,7 +126,7 @@ banner and border, while warning-level videos keep the warning color.
 Disable it:
 
 ```js
-localStorage.removeItem("engageguard:debugDetails");
+localStorage.removeItem("youtube-engage-o-meter:debugDetails");
 ```
 
 Debug mode is for development and manual verification.
