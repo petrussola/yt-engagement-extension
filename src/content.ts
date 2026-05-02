@@ -20,11 +20,13 @@ function isYouTubeWatchPage(): boolean {
   );
 }
 
-let removeEngageGuardListeners: (() => void) | undefined;
 let commentsObserver: MutationObserver | undefined;
 let previousPlayerContainerPosition: string | undefined;
 let commentsRerenderTimeout: number | undefined;
 let forceWarningInterval: number | undefined;
+let watchDomRetryTimeout: number | undefined;
+let commentsCountRetryTimeout: number | undefined;
+let currentVideoId: string | undefined;
 
 const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
 const METHODOLOGY_URL =
@@ -83,6 +85,52 @@ function isForceWarningEnabled(): boolean {
   return window.localStorage.getItem(FORCE_WARNING_STORAGE_KEY) === "true";
 }
 
+function getWatchVideoId(): string | undefined {
+  const url = new URL(window.location.href);
+
+  if (
+    url.hostname !== "www.youtube.com" ||
+    url.pathname !== "/watch" ||
+    !url.searchParams.has("v")
+  ) {
+    return undefined;
+  }
+
+  return url.searchParams.get("v") ?? undefined;
+}
+
+function isWatchDomForVideo(videoId: string | undefined): boolean {
+  if (!videoId) {
+    return true;
+  }
+
+  const watchContainer = document.querySelector("ytd-watch-flexy");
+  const renderedVideoId = watchContainer?.getAttribute("video-id");
+
+  return !renderedVideoId || renderedVideoId === videoId;
+}
+
+function clearScheduledWork(): void {
+  window.clearTimeout(watchDomRetryTimeout);
+  window.clearTimeout(commentsCountRetryTimeout);
+  window.clearTimeout(commentsRerenderTimeout);
+}
+
+function cleanupEngageGuardUi(): void {
+  document.querySelector("#engageguard-warning")?.remove();
+  document.querySelector("#engageguard-player-border")?.remove();
+
+  if (previousPlayerContainerPosition !== undefined) {
+    const playerContainer = document.querySelector<HTMLElement>("#player");
+
+    if (playerContainer) {
+      playerContainer.style.position = previousPlayerContainerPosition;
+    }
+
+    previousPlayerContainerPosition = undefined;
+  }
+}
+
 function getFallbackAnalysisForBypass(): EngagementAnalysis {
   return {
     views: 100_000,
@@ -94,24 +142,23 @@ function getFallbackAnalysisForBypass(): EngagementAnalysis {
   };
 }
 
-function renderEngagementWarning(): boolean {
+function renderEngagementWarning(videoId: string | undefined): boolean {
   const player = document.querySelector<HTMLElement>("#movie_player");
   const playerContainer = document.querySelector<HTMLElement>("#player");
   const metadata = document.querySelector<HTMLElement>(
     "#below ytd-watch-metadata",
   );
 
-  if (!player || !playerContainer || !metadata) {
+  if (
+    !player ||
+    !playerContainer ||
+    !metadata ||
+    !isWatchDomForVideo(videoId)
+  ) {
     return false;
   }
 
-  removeEngageGuardListeners?.();
-  document.querySelector("#engageguard-warning")?.remove();
-  document.querySelector("#engageguard-player-border")?.remove();
-  if (previousPlayerContainerPosition !== undefined) {
-    playerContainer.style.position = previousPlayerContainerPosition;
-    previousPlayerContainerPosition = undefined;
-  }
+  cleanupEngageGuardUi();
 
   const metrics = extractVisibleEngagementMetrics();
   const forceWarning = isForceWarningEnabled();
@@ -193,8 +240,10 @@ function renderEngagementWarning(): boolean {
   return true;
 }
 
-function waitForWatchDomAndInject(attempt = 1): void {
-  if (renderEngagementWarning()) {
+function waitForWatchDomAndInject(videoId = currentVideoId, attempt = 1): void {
+  window.clearTimeout(watchDomRetryTimeout);
+
+  if (renderEngagementWarning(videoId)) {
     return;
   }
 
@@ -202,7 +251,10 @@ function waitForWatchDomAndInject(attempt = 1): void {
     return;
   }
 
-  window.setTimeout(() => waitForWatchDomAndInject(attempt + 1), 250);
+  watchDomRetryTimeout = window.setTimeout(
+    () => waitForWatchDomAndInject(videoId, attempt + 1),
+    250,
+  );
 }
 
 function watchForceWarningBypass(): void {
@@ -226,7 +278,8 @@ function watchCommentsCount(): void {
   const commentsCountElement = document.querySelector("#comments #count");
 
   if (!commentsCountElement) {
-    window.setTimeout(watchCommentsCount, 1_000);
+    window.clearTimeout(commentsCountRetryTimeout);
+    commentsCountRetryTimeout = window.setTimeout(watchCommentsCount, 1_000);
     return;
   }
 
@@ -252,12 +305,38 @@ function watchCommentsCount(): void {
   });
 }
 
-if (isYouTubeWatchPage()) {
+function initializeCurrentWatchPage(): void {
+  const videoId = currentVideoId;
+
+  clearScheduledWork();
+  commentsObserver?.disconnect();
+  cleanupEngageGuardUi();
+
+  if (!videoId || !isYouTubeWatchPage()) {
+    return;
+  }
+
   console.log("EngageGuard active on YouTube video", {
     forceWarning: isForceWarningEnabled(),
-    videoId: new URL(window.location.href).searchParams.get("v"),
+    videoId,
   });
-  waitForWatchDomAndInject();
-  watchForceWarningBypass();
+  waitForWatchDomAndInject(videoId);
   watchCommentsCount();
 }
+
+function handleYouTubeRouteChange(): void {
+  const nextVideoId = getWatchVideoId();
+
+  if (nextVideoId === currentVideoId) {
+    return;
+  }
+
+  currentVideoId = nextVideoId;
+  initializeCurrentWatchPage();
+}
+
+watchForceWarningBypass();
+handleYouTubeRouteChange();
+document.addEventListener("yt-navigate-finish", handleYouTubeRouteChange);
+window.addEventListener("popstate", handleYouTubeRouteChange);
+window.setInterval(handleYouTubeRouteChange, 500);
