@@ -234,9 +234,6 @@ function getAnalysisForCurrentPage(): PageEngagementAnalysis {
     calculateEngagement(metrics) ??
     (forceWarning ? getFallbackAnalysisForBypass() : undefined);
 
-  console.debug("EngageGuard visible engagement metrics", metrics);
-  console.debug("EngageGuard engagement analysis", analysis);
-
   return { metrics, debugSources, analysis };
 }
 
@@ -332,7 +329,7 @@ function getDebugBannerMessage(
 }
 
 function renderWarningBanner(
-  metadata: HTMLElement,
+  insertionTarget: HTMLElement,
   metrics: VisibleEngagementMetrics,
   debugSources: EngagementDebugSources,
   analysis: EngagementAnalysis | undefined,
@@ -406,7 +403,7 @@ function renderWarningBanner(
   }
 
   warning.append(textContainer, methodologyLink);
-  metadata.before(warning);
+  insertionTarget.before(warning);
 }
 
 function renderPlayerBorder(
@@ -440,11 +437,15 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
   const metadata = document.querySelector<HTMLElement>(
     "#below ytd-watch-metadata",
   );
+  const insertionTarget =
+    document.querySelector<HTMLElement>("#below > #shopping-timely-shelf") ??
+    metadata;
 
   if (
     !player ||
     !playerContainer ||
     !metadata ||
+    !insertionTarget ||
     !isWatchDomForVideo(videoId)
   ) {
     return false;
@@ -468,7 +469,13 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
     return true;
   }
 
-  renderWarningBanner(metadata, metrics, debugSources, analysis, severity);
+  renderWarningBanner(
+    insertionTarget,
+    metrics,
+    debugSources,
+    analysis,
+    severity,
+  );
   renderPlayerBorder(playerContainer, severity);
 
   return true;
@@ -561,10 +568,6 @@ function initializeCurrentWatchPage(): void {
     return;
   }
 
-  console.log("EngageGuard active on YouTube video", {
-    forceWarning: isForceWarningEnabled(),
-    videoId,
-  });
   waitForWatchDomAndInject(videoId);
   watchCommentsCount();
 }
