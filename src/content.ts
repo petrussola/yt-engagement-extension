@@ -340,7 +340,7 @@ function renderEngagementWarning(): boolean {
     `border: 4px solid ${severityColor}`,
     "border-radius: 0",
     "pointer-events: none",
-    "z-index: 2147483647",
+    "z-index: 1",
   ].join(";");
   playerContainer.append(playerBorder);
 
