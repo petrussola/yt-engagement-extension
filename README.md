@@ -2,7 +2,7 @@
 
 ## Context
 
-Theo (aka t3, t3dotgg) made [this video](https://www.youtube.com/watch?v=P6u0K3-z2p4) where about the business of fake Github stars. I was outraged. He explains that the problem extends to other social networks. On the topic of YouTube, he points viewers to [his tweet](https://x.com/theo/status/2017366819859009588), with examples about how to spot a YouTuber that may have artificially boosted the view count to lure advertising revenue. He asks the community to be vigilant. But let's be honest: we don't watch videos with a calculator by our side. And this is how the idea for this extension was born - hope you like it and that it helps makes YouTube a better place. Peace nerds.
+Theo (aka t3, t3dotgg) made [this video](https://www.youtube.com/watch?v=P6u0K3-z2p4) where he talks about the business of fake Github stars. I was outraged. He explains that the problem extends to other social networks, like YouTube. He points viewers to [his tweet](https://x.com/theo/status/2017366819859009588), with examples about how to spot a YouTuber that may have artificially boosted the view count to lure advertising revenue. He asks the community to be vigilant. But let's be honest: we don't watch videos with a calculator by our side. And this is how the idea for this extension was born - hope you like it and that it helps makes YouTube a better place. Peace nerds.
 
 ## What It Is
 
