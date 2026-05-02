@@ -4,9 +4,9 @@
 
 Theo (aka t3, t3dotgg) made [this video](https://www.youtube.com/watch?v=P6u0K3-z2p4) where about the business of fake Github stars. I was outraged. He explains that the problem extends to other social networks. On the topic of YouTube, he points viewers to [his tweet](https://x.com/theo/status/2017366819859009588), with examples about how to spot a YouTuber that may have artificially boosted the view count to lure advertising revenue. He asks the community to be vigilant. But let's be honest: we don't watch videos with a calculator by our side. And this is how the idea for this extension was born - hope you like it and that it helps makes YouTube a better place. Peace nerds.
 
-## What is it
+## What It Is
 
-YouTube Engage-o-meter is a Chrome extension that highlights YouTube videos whose visible public engagement looks unusually low for their view count.
+YouTube Engage-o-meter is a browser extension that highlights YouTube videos whose visible public engagement looks unusually low for their view count.
 
 It is an anomaly signal, not a fraud detector. The extension does not claim that a video bought views, used bots, or manipulated engagement.
 
