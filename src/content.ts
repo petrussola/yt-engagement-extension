@@ -9,6 +9,10 @@ function isYouTubeWatchPage(): boolean {
 }
 
 let removeEngageGuardListeners: (() => void) | undefined;
+let commentsObserver: MutationObserver | undefined;
+let previousPlayerContainerPosition: string | undefined;
+let commentsRerenderTimeout: number | undefined;
+let forceWarningInterval: number | undefined;
 
 type VisibleEngagementMetrics = {
   views?: number;
@@ -71,6 +75,37 @@ function parseYouTubeCount(
   return Math.round(value * multiplier);
 }
 
+function parseYouTubeCountWithLabel(
+  text: string | null | undefined,
+  label: "views" | "comments",
+): number | undefined {
+  if (!text) {
+    return undefined;
+  }
+
+  const normalizedText = text.replace(/,/g, "").replace(/\s+/g, " ").trim();
+  const countMatch = normalizedText.match(
+    new RegExp(`(\\d+(?:\\.\\d+)?)\\s*([kmb])?\\s+${label}`, "i"),
+  );
+
+  if (!countMatch) {
+    return undefined;
+  }
+
+  const value = Number.parseFloat(countMatch[1]);
+  const suffix = countMatch[2]?.toLowerCase();
+  const multiplier =
+    suffix === "k"
+      ? 1_000
+      : suffix === "m"
+        ? 1_000_000
+        : suffix === "b"
+          ? 1_000_000_000
+          : 1;
+
+  return Math.round(value * multiplier);
+}
+
 function getElementTextOrLabel(element: Element | null): string | undefined {
   if (!element) {
     return undefined;
@@ -84,10 +119,15 @@ function getElementTextOrLabel(element: Element | null): string | undefined {
   );
 }
 
+function getFirstElementTextOrLabel(selectors: string[]): string | undefined {
+  return selectors
+    .map((selector) =>
+      getElementTextOrLabel(document.querySelector(selector))?.trim(),
+    )
+    .find((text) => text !== undefined && text.length > 0);
+}
+
 function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
-  const viewCountElement = document.querySelector(
-    "ytd-watch-metadata #info-container #view-count",
-  );
   const likeButton = Array.from(document.querySelectorAll("button")).find(
     (button) => {
       const label = button.getAttribute("aria-label") ?? "";
@@ -98,11 +138,20 @@ function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
   const commentCountElement = document.querySelector(
     "#comments #count yt-formatted-string, #comments #count",
   );
+  const viewCountText = getFirstElementTextOrLabel([
+    "ytd-watch-metadata #info-container #view-count",
+    "ytd-watch-metadata #info-container",
+    "ytd-watch-metadata ytd-watch-info-text",
+    "ytd-watch-metadata #bottom-row",
+  ]);
+  const commentCountText = getElementTextOrLabel(commentCountElement);
 
   return {
-    views: parseYouTubeCount(getElementTextOrLabel(viewCountElement)),
+    views:
+      parseYouTubeCountWithLabel(viewCountText, "views") ??
+      parseYouTubeCount(viewCountText),
     likes: parseYouTubeCount(getElementTextOrLabel(likeButton)),
-    comments: parseYouTubeCount(getElementTextOrLabel(commentCountElement)),
+    comments: parseYouTubeCountWithLabel(commentCountText, "comments"),
   };
 }
 
@@ -228,25 +277,30 @@ function getWarningText(analysis: EngagementAnalysis): string {
 
 function renderEngagementWarning(): boolean {
   const player = document.querySelector<HTMLElement>("#movie_player");
+  const playerContainer = document.querySelector<HTMLElement>("#player");
   const metadata = document.querySelector<HTMLElement>(
     "#below ytd-watch-metadata",
   );
 
-  if (!player || !metadata) {
+  if (!player || !playerContainer || !metadata) {
     return false;
   }
 
   removeEngageGuardListeners?.();
   document.querySelector("#engageguard-warning")?.remove();
   document.querySelector("#engageguard-player-border")?.remove();
+  if (previousPlayerContainerPosition !== undefined) {
+    playerContainer.style.position = previousPlayerContainerPosition;
+    previousPlayerContainerPosition = undefined;
+  }
 
   const metrics = extractVisibleEngagementMetrics();
   const forceWarning = isForceWarningEnabled();
   const analysis =
     calculateEngagement(metrics) ??
     (forceWarning ? getFallbackAnalysisForBypass() : undefined);
-  console.log("EngageGuard visible engagement metrics", metrics);
-  console.log("EngageGuard engagement analysis", analysis);
+  console.debug("EngageGuard visible engagement metrics", metrics);
+  console.debug("EngageGuard engagement analysis", analysis);
 
   if (!analysis) {
     return false;
@@ -279,35 +333,23 @@ function renderEngagementWarning(): boolean {
 
   metadata.before(warning);
 
+  previousPlayerContainerPosition = playerContainer.style.position;
+  if (!playerContainer.style.position) {
+    playerContainer.style.position = "relative";
+  }
+
   const playerBorder = document.createElement("div");
   playerBorder.id = "engageguard-player-border";
   playerBorder.style.cssText = [
-    "position: fixed",
+    "position: absolute",
+    "inset: 0",
     "box-sizing: border-box",
     `border: 4px solid ${severityColor}`,
     "border-radius: 0",
     "pointer-events: none",
     "z-index: 2147483647",
   ].join(";");
-
-  const positionEngageGuardUi = () => {
-    const playerRect = player.getBoundingClientRect();
-
-    playerBorder.style.top = `${playerRect.top}px`;
-    playerBorder.style.left = `${playerRect.left}px`;
-    playerBorder.style.width = `${playerRect.width}px`;
-    playerBorder.style.height = `${playerRect.height}px`;
-  };
-
-  document.body.append(playerBorder);
-  positionEngageGuardUi();
-  window.addEventListener("resize", positionEngageGuardUi);
-  window.addEventListener("scroll", positionEngageGuardUi, { passive: true });
-
-  removeEngageGuardListeners = () => {
-    window.removeEventListener("resize", positionEngageGuardUi);
-    window.removeEventListener("scroll", positionEngageGuardUi);
-  };
+  playerContainer.append(playerBorder);
 
   return true;
 }
@@ -325,9 +367,10 @@ function waitForWatchDomAndInject(attempt = 1): void {
 }
 
 function watchForceWarningBypass(): void {
+  window.clearInterval(forceWarningInterval);
   let wasForceWarningEnabled = isForceWarningEnabled();
 
-  window.setInterval(() => {
+  forceWarningInterval = window.setInterval(() => {
     const forceWarningEnabled = isForceWarningEnabled();
 
     if (forceWarningEnabled && !wasForceWarningEnabled) {
@@ -338,6 +381,38 @@ function watchForceWarningBypass(): void {
   }, 500);
 }
 
+function watchCommentsCount(): void {
+  commentsObserver?.disconnect();
+
+  const commentsCountElement = document.querySelector("#comments #count");
+
+  if (!commentsCountElement) {
+    window.setTimeout(watchCommentsCount, 1_000);
+    return;
+  }
+
+  commentsObserver = new MutationObserver(() => {
+    window.clearTimeout(commentsRerenderTimeout);
+
+    commentsRerenderTimeout = window.setTimeout(() => {
+      const commentCountText = getElementTextOrLabel(commentsCountElement);
+
+      if (
+        parseYouTubeCountWithLabel(commentCountText, "comments") !== undefined
+      ) {
+        waitForWatchDomAndInject();
+        commentsObserver?.disconnect();
+      }
+    }, 250);
+  });
+
+  commentsObserver.observe(commentsCountElement, {
+    characterData: true,
+    childList: true,
+    subtree: true,
+  });
+}
+
 if (isYouTubeWatchPage()) {
   console.log("EngageGuard active on YouTube video", {
     forceWarning: isForceWarningEnabled(),
@@ -345,4 +420,5 @@ if (isYouTubeWatchPage()) {
   });
   waitForWatchDomAndInject();
   watchForceWarningBypass();
+  watchCommentsCount();
 }
