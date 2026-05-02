@@ -31,6 +31,18 @@ let currentVideoId: string | undefined;
 const FORCE_WARNING_STORAGE_KEY = "engageguard:forceWarning";
 const METHODOLOGY_URL =
   "https://github.com/petrussola/engageguard#classification";
+const WATCH_DOM_RETRY_LIMIT = 40;
+const WATCH_DOM_RETRY_DELAY_MS = 250;
+const COMMENT_COUNT_RETRY_DELAY_MS = 1_000;
+const COMMENT_RERENDER_DELAY_MS = 250;
+const FORCE_WARNING_POLL_DELAY_MS = 500;
+const ROUTE_POLL_DELAY_MS = 500;
+const VIEW_COUNT_SELECTORS = [
+  "ytd-watch-metadata #info-container #view-count",
+  "ytd-watch-metadata #info-container",
+  "ytd-watch-metadata ytd-watch-info-text",
+  "ytd-watch-metadata #bottom-row",
+];
 
 function getElementTextOrLabel(
   element: Element | null | undefined,
@@ -55,23 +67,20 @@ function getFirstElementTextOrLabel(selectors: string[]): string | undefined {
     .find((text) => text !== undefined && text.length > 0);
 }
 
-function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
-  const likeButton = Array.from(document.querySelectorAll("button")).find(
-    (button) => {
-      const label = button.getAttribute("aria-label") ?? "";
+function findLikeButton(): HTMLButtonElement | undefined {
+  return Array.from(document.querySelectorAll("button")).find((button) => {
+    const label = button.getAttribute("aria-label") ?? "";
 
-      return /like this video/i.test(label);
-    },
-  );
+    return /like this video/i.test(label);
+  });
+}
+
+function extractVisibleEngagementMetrics(): VisibleEngagementMetrics {
+  const likeButton = findLikeButton();
   const commentCountElement = document.querySelector(
     "#comments #count yt-formatted-string, #comments #count",
   );
-  const viewCountText = getFirstElementTextOrLabel([
-    "ytd-watch-metadata #info-container #view-count",
-    "ytd-watch-metadata #info-container",
-    "ytd-watch-metadata ytd-watch-info-text",
-    "ytd-watch-metadata #bottom-row",
-  ]);
+  const viewCountText = getFirstElementTextOrLabel(VIEW_COUNT_SELECTORS);
   const commentCountText = getElementTextOrLabel(commentCountElement);
 
   return {
@@ -141,47 +150,28 @@ function getFallbackAnalysisForBypass(): EngagementAnalysis {
     engagementRate: 0.008,
     classification: "suspiciously-low",
     commentsUnavailable: true,
+    signalConfidence: "limited",
   };
 }
 
-function renderEngagementWarning(videoId: string | undefined): boolean {
-  const player = document.querySelector<HTMLElement>("#movie_player");
-  const playerContainer = document.querySelector<HTMLElement>("#player");
-  const metadata = document.querySelector<HTMLElement>(
-    "#below ytd-watch-metadata",
-  );
-
-  if (
-    !player ||
-    !playerContainer ||
-    !metadata ||
-    !isWatchDomForVideo(videoId)
-  ) {
-    return false;
-  }
-
-  cleanupEngageGuardUi();
-
+function getAnalysisForCurrentPage(): EngagementAnalysis | undefined {
   const metrics = extractVisibleEngagementMetrics();
   const forceWarning = isForceWarningEnabled();
   const analysis =
     calculateEngagement(metrics) ??
     (forceWarning ? getFallbackAnalysisForBypass() : undefined);
+
   console.debug("EngageGuard visible engagement metrics", metrics);
   console.debug("EngageGuard engagement analysis", analysis);
 
-  if (!analysis) {
-    return false;
-  }
+  return analysis;
+}
 
-  const severity =
-    getWarningSeverity(analysis.classification) ??
-    (forceWarning ? "suspiciously-low" : undefined);
-
-  if (!severity) {
-    return true;
-  }
-
+function renderWarningBanner(
+  metadata: HTMLElement,
+  analysis: EngagementAnalysis,
+  severity: NonNullable<ReturnType<typeof getWarningSeverity>>,
+): void {
   const severityColor = getSeverityColor(severity);
   const severityTextColor = getSeverityTextColor(severity);
   const warning = document.createElement("div");
@@ -220,6 +210,13 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
 
   warning.append(warningMessage, methodologyLink);
   metadata.before(warning);
+}
+
+function renderPlayerBorder(
+  playerContainer: HTMLElement,
+  severity: NonNullable<ReturnType<typeof getWarningSeverity>>,
+): void {
+  const severityColor = getSeverityColor(severity);
 
   previousPlayerContainerPosition = playerContainer.style.position;
   if (!playerContainer.style.position) {
@@ -238,6 +235,42 @@ function renderEngagementWarning(videoId: string | undefined): boolean {
     "z-index: 1",
   ].join(";");
   playerContainer.append(playerBorder);
+}
+
+function renderEngagementWarning(videoId: string | undefined): boolean {
+  const player = document.querySelector<HTMLElement>("#movie_player");
+  const playerContainer = document.querySelector<HTMLElement>("#player");
+  const metadata = document.querySelector<HTMLElement>(
+    "#below ytd-watch-metadata",
+  );
+
+  if (
+    !player ||
+    !playerContainer ||
+    !metadata ||
+    !isWatchDomForVideo(videoId)
+  ) {
+    return false;
+  }
+
+  cleanupEngageGuardUi();
+
+  const analysis = getAnalysisForCurrentPage();
+
+  if (!analysis) {
+    return false;
+  }
+
+  const severity =
+    getWarningSeverity(analysis) ??
+    (isForceWarningEnabled() ? "suspiciously-low" : undefined);
+
+  if (!severity) {
+    return true;
+  }
+
+  renderWarningBanner(metadata, analysis, severity);
+  renderPlayerBorder(playerContainer, severity);
 
   return true;
 }
@@ -249,13 +282,13 @@ function waitForWatchDomAndInject(videoId = currentVideoId, attempt = 1): void {
     return;
   }
 
-  if (attempt >= 40) {
+  if (attempt >= WATCH_DOM_RETRY_LIMIT) {
     return;
   }
 
   watchDomRetryTimeout = window.setTimeout(
     () => waitForWatchDomAndInject(videoId, attempt + 1),
-    250,
+    WATCH_DOM_RETRY_DELAY_MS,
   );
 }
 
@@ -271,7 +304,7 @@ function watchForceWarningBypass(): void {
     }
 
     wasForceWarningEnabled = forceWarningEnabled;
-  }, 500);
+  }, FORCE_WARNING_POLL_DELAY_MS);
 }
 
 function watchCommentsCount(): void {
@@ -281,7 +314,10 @@ function watchCommentsCount(): void {
 
   if (!commentsCountElement) {
     window.clearTimeout(commentsCountRetryTimeout);
-    commentsCountRetryTimeout = window.setTimeout(watchCommentsCount, 1_000);
+    commentsCountRetryTimeout = window.setTimeout(
+      watchCommentsCount,
+      COMMENT_COUNT_RETRY_DELAY_MS,
+    );
     return;
   }
 
@@ -297,7 +333,7 @@ function watchCommentsCount(): void {
         waitForWatchDomAndInject();
         commentsObserver?.disconnect();
       }
-    }, 250);
+    }, COMMENT_RERENDER_DELAY_MS);
   });
 
   commentsObserver.observe(commentsCountElement, {
@@ -341,4 +377,4 @@ watchForceWarningBypass();
 handleYouTubeRouteChange();
 document.addEventListener("yt-navigate-finish", handleYouTubeRouteChange);
 window.addEventListener("popstate", handleYouTubeRouteChange);
-window.setInterval(handleYouTubeRouteChange, 500);
+window.setInterval(handleYouTubeRouteChange, ROUTE_POLL_DELAY_MS);

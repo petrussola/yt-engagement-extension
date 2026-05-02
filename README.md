@@ -30,6 +30,10 @@ When comments are not available yet:
 engagementRate = likes / views;
 ```
 
+That score is treated as a lower-confidence lower-bound signal because visible
+comments may lift the final engagement rate after YouTube loads the comments
+section.
+
 Videos with missing views or likes are not analyzed. Videos under `1,000` views are currently treated as insufficient data.
 
 ## Classification
@@ -43,11 +47,14 @@ Videos with missing views or likes are not analyzed. Videos under `1,000` views 
 | Suspiciously low |   `0.5% - 1.0%` | Warning |
 | Highly unusual   |        `< 0.5%` | Warning |
 
+When comments are unavailable, the extension suppresses the `Low` warning and
+only warns for `Suspiciously low` or `Highly unusual` likes/views signals.
+
 The warning copy intentionally uses calm language, for example:
 
 ```text
 This video has unusually low visible engagement for its view count · Engagement: 0.8%
-Comments unavailable; using likes/views only.
+Comments unavailable; using likes/views as a lower-bound signal.
 ```
 
 ## Current Limitations

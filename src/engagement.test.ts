@@ -83,6 +83,7 @@ describe("calculateEngagement", () => {
     assert.equal(analysis.commentRate, 1_727 / 2_000_000);
     assert.equal(analysis.engagementRate, (37_093 + 1_727) / 2_000_000);
     assert.equal(analysis.classification, "low");
+    assert.equal(analysis.signalConfidence, "standard");
   });
 
   it("falls back to likes over views when comments are unavailable", () => {
@@ -96,6 +97,19 @@ describe("calculateEngagement", () => {
     assert.equal(analysis.commentRate, undefined);
     assert.equal(analysis.engagementRate, 37_093 / 2_000_000);
     assert.equal(analysis.classification, "low");
+    assert.equal(analysis.signalConfidence, "limited");
+  });
+
+  it("scores visible zero likes as highly unusual instead of missing data", () => {
+    const analysis = calculateEngagement({
+      views: 10_000,
+      likes: 0,
+      comments: 0,
+    });
+
+    assert.ok(analysis);
+    assert.equal(analysis.engagementRate, 0);
+    assert.equal(analysis.classification, "highly-unusual");
   });
 
   it("does not score videos without enough visible data", () => {
@@ -110,12 +124,59 @@ describe("calculateEngagement", () => {
 
 describe("warning helpers", () => {
   it("only returns a severity for warning-level classifications", () => {
-    assert.equal(getWarningSeverity("very-strong"), undefined);
-    assert.equal(getWarningSeverity("strong"), undefined);
-    assert.equal(getWarningSeverity("normal"), undefined);
-    assert.equal(getWarningSeverity("low"), "low");
-    assert.equal(getWarningSeverity("suspiciously-low"), "suspiciously-low");
-    assert.equal(getWarningSeverity("highly-unusual"), "highly-unusual");
+    assert.equal(
+      getWarningSeverity({
+        classification: "very-strong",
+        commentsUnavailable: false,
+      }),
+      undefined,
+    );
+    assert.equal(
+      getWarningSeverity({
+        classification: "strong",
+        commentsUnavailable: false,
+      }),
+      undefined,
+    );
+    assert.equal(
+      getWarningSeverity({
+        classification: "normal",
+        commentsUnavailable: false,
+      }),
+      undefined,
+    );
+    assert.equal(
+      getWarningSeverity({ classification: "low", commentsUnavailable: false }),
+      "low",
+    );
+    assert.equal(
+      getWarningSeverity({
+        classification: "suspiciously-low",
+        commentsUnavailable: false,
+      }),
+      "suspiciously-low",
+    );
+    assert.equal(
+      getWarningSeverity({
+        classification: "highly-unusual",
+        commentsUnavailable: false,
+      }),
+      "highly-unusual",
+    );
+  });
+
+  it("does not warn on low likes-only engagement because comments may lift the rate", () => {
+    assert.equal(
+      getWarningSeverity({ classification: "low", commentsUnavailable: true }),
+      undefined,
+    );
+    assert.equal(
+      getWarningSeverity({
+        classification: "suspiciously-low",
+        commentsUnavailable: true,
+      }),
+      "suspiciously-low",
+    );
   });
 
   it("formats warning text using the computed engagement rate", () => {

@@ -21,12 +21,15 @@ export type EngagementAnalysis = {
   engagementRate: number;
   classification: EngagementClassification;
   commentsUnavailable: boolean;
+  signalConfidence: "standard" | "limited";
 };
 
 export type WarningSeverity = Extract<
   EngagementClassification,
   "low" | "suspiciously-low" | "highly-unusual"
 >;
+
+const MIN_ANALYZABLE_VIEWS = 1_000;
 
 function getCountMultiplier(suffix: string | undefined): number {
   if (suffix === "k") {
@@ -116,7 +119,11 @@ export function classifyEngagement(
 export function calculateEngagement(
   metrics: VisibleEngagementMetrics,
 ): EngagementAnalysis | undefined {
-  if (!metrics.views || !metrics.likes || metrics.views < 1_000) {
+  if (
+    metrics.views === undefined ||
+    metrics.likes === undefined ||
+    metrics.views < MIN_ANALYZABLE_VIEWS
+  ) {
     return undefined;
   }
 
@@ -138,12 +145,19 @@ export function calculateEngagement(
     engagementRate,
     classification: classifyEngagement(engagementRate),
     commentsUnavailable,
+    signalConfidence: commentsUnavailable ? "limited" : "standard",
   };
 }
 
 export function getWarningSeverity(
-  classification: EngagementClassification,
+  analysis: Pick<EngagementAnalysis, "classification" | "commentsUnavailable">,
 ): WarningSeverity | undefined {
+  const { classification, commentsUnavailable } = analysis;
+
+  if (commentsUnavailable && classification === "low") {
+    return undefined;
+  }
+
   if (
     classification === "low" ||
     classification === "suspiciously-low" ||
@@ -181,7 +195,7 @@ export function getWarningText(analysis: EngagementAnalysis): string {
   if (analysis.commentsUnavailable) {
     return [
       `This video has unusually low visible engagement for its view count · ${engagementText}`,
-      "Comments unavailable; using likes/views only.",
+      "Comments unavailable; using likes/views as a lower-bound signal.",
     ].join("\n");
   }
 
