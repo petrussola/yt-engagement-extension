@@ -46,7 +46,7 @@
       }
 
       header {
-        padding: 56px 0 32px;
+        padding: 48px 0 32px;
         border-bottom: 1px solid var(--border);
       }
 
@@ -84,6 +84,19 @@
         margin-bottom: 24px;
         color: var(--muted);
         font-size: 1.15rem;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .logo {
+        width: 64px;
+        height: 64px;
+        border-radius: 14px;
       }
 
       .actions {
@@ -144,6 +157,35 @@
         color: var(--muted);
       }
 
+      .screenshots {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+        margin-top: 18px;
+      }
+
+      .screenshot {
+        margin: 0;
+      }
+
+      .screenshot:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .screenshot img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+
+      .screenshot figcaption {
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
       ul {
         padding-left: 22px;
       }
@@ -178,7 +220,16 @@
   <body>
     <div class="page">
       <header>
-        <h1>YouTube Engage-o-meter</h1>
+        <div class="brand">
+          <img
+            class="logo"
+            src="assets/logo.png"
+            width="128"
+            height="128"
+            alt=""
+          />
+          <h1>YouTube Engage-o-meter</h1>
+        </div>
         <p class="lede">
           A browser extension that highlights YouTube videos with unusually low
           visible engagement for their view count.
@@ -222,6 +273,61 @@
                 remote servers.
               </p>
             </article>
+          </div>
+        </section>
+
+        <section aria-labelledby="screenshots">
+          <h2 id="screenshots">Screenshots</h2>
+          <div class="screenshots">
+            <figure class="screenshot">
+              <img
+                src="assets/screenshot_1.png"
+                width="1280"
+                height="800"
+                alt="YouTube watch page with an Engage-o-meter warning banner above the video details."
+              />
+              <figcaption>Warning banner on a YouTube watch page.</figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/screenshot_2.png"
+                width="1280"
+                height="800"
+                alt="YouTube watch page showing the extension's engagement warning and highlighted player."
+              />
+              <figcaption>
+                Visual highlighting around low engagement.
+              </figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/screenshot_3.png"
+                width="1280"
+                height="800"
+                alt="YouTube watch page with Engage-o-meter debug details visible in the warning banner."
+              />
+              <figcaption>Optional debug details for manual review.</figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/screenshot_4.png"
+                width="1280"
+                height="800"
+                alt="Extension popup with a debug details toggle."
+              />
+              <figcaption>Popup control for debug details.</figcaption>
+            </figure>
+            <figure class="screenshot">
+              <img
+                src="assets/screenshot_5.png"
+                width="1280"
+                height="800"
+                alt="YouTube watch page showing Engage-o-meter analysis on another video."
+              />
+              <figcaption>
+                Engagement analysis across YouTube videos.
+              </figcaption>
+            </figure>
           </div>
         </section>
       </main>
