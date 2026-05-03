@@ -1,5 +1,5 @@
 body {
-  min-width: 260px;
+  min-width: 300px;
   margin: 0;
   color: #111827;
   background: #ffffff;
@@ -23,4 +23,45 @@ h1 {
 
 p {
   margin: 8px 0 0;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.toggle-title,
+.toggle-description {
+  display: block;
+}
+
+.toggle-title {
+  font-weight: 700;
+}
+
+.toggle-description {
+  margin-top: 2px;
+  color: #4b5563;
+  font-size: 12px;
+}
+
+#debug-details-toggle {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #dc2626;
+}
+
+#debug-details-toggle:disabled {
+  cursor: not-allowed;
+}
+
+.status-message {
+  color: #4b5563;
+  font-size: 12px;
 }

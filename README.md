@@ -147,19 +147,12 @@ If you rebuild, reload the extension in `chrome://extensions` and refresh the Yo
 
 ## Debug Mode
 
-To show parsed counts and the exact engagement calculation in the banner:
-
-```js
-localStorage.setItem("youtube-engage-o-meter:debugDetails", "true");
-```
+Open the extension popup on a YouTube watch page and turn on **Debug details**
+to show parsed counts and the exact engagement calculation in the banner.
 
 Debug mode shows the banner for every analyzed video. Passing videos use a green
 banner and border, while warning-level videos keep the warning color.
 
-Disable it:
-
-```js
-localStorage.removeItem("youtube-engage-o-meter:debugDetails");
-```
+Turn off **Debug details** in the popup to disable it.
 
 Debug mode is for development and manual verification.

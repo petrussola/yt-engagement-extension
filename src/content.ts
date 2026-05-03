@@ -60,6 +60,12 @@ type EngagementDebugSources = {
   comments: string[];
 };
 type BannerSeverity = WarningSeverity | "passing";
+type PopupDebugMessage =
+  | { type: "youtube-engage-o-meter:getDebugDetails" }
+  | { enabled: boolean; type: "youtube-engage-o-meter:setDebugDetails" };
+type PopupDebugResponse = {
+  debugDetailsEnabled: boolean;
+};
 
 function getElementTextOrLabel(
   element: Element | null | undefined,
@@ -167,6 +173,33 @@ function isForceWarningEnabled(): boolean {
 
 function isDebugDetailsEnabled(): boolean {
   return window.localStorage.getItem(DEBUG_DETAILS_STORAGE_KEY) === "true";
+}
+
+function setDebugDetailsEnabled(enabled: boolean): void {
+  if (enabled) {
+    window.localStorage.setItem(DEBUG_DETAILS_STORAGE_KEY, "true");
+    return;
+  }
+
+  window.localStorage.removeItem(DEBUG_DETAILS_STORAGE_KEY);
+}
+
+function isPopupDebugMessage(message: unknown): message is PopupDebugMessage {
+  if (!message || typeof message !== "object" || !("type" in message)) {
+    return false;
+  }
+
+  const type = message.type;
+
+  if (type === "youtube-engage-o-meter:getDebugDetails") {
+    return true;
+  }
+
+  return (
+    type === "youtube-engage-o-meter:setDebugDetails" &&
+    "enabled" in message &&
+    typeof message.enabled === "boolean"
+  );
 }
 
 function getWatchVideoId(): string | undefined {
@@ -520,6 +553,25 @@ function watchForceWarningBypass(): void {
     wasDebugDetailsEnabled = debugDetailsEnabled;
   }, FORCE_WARNING_POLL_DELAY_MS);
 }
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!isPopupDebugMessage(message)) {
+    return false;
+  }
+
+  if (message.type === "youtube-engage-o-meter:setDebugDetails") {
+    setDebugDetailsEnabled(message.enabled);
+    waitForWatchDomAndInject();
+  }
+
+  const response: PopupDebugResponse = {
+    debugDetailsEnabled: isDebugDetailsEnabled(),
+  };
+
+  sendResponse(response);
+
+  return false;
+});
 
 function watchCommentsCount(): void {
   commentsObserver?.disconnect();
