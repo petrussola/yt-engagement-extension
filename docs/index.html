@@ -41,7 +41,7 @@
       }
 
       .page {
-        width: min(920px, calc(100% - 32px));
+        width: min(1120px, calc(100% - 32px));
         margin: 0 auto;
       }
 
@@ -79,10 +79,11 @@
       }
 
       .lede {
-        max-width: 700px;
+        max-width: none;
         margin-bottom: 24px;
         color: var(--muted);
         font-size: 1.15rem;
+        white-space: nowrap;
       }
 
       .brand {
@@ -237,6 +238,10 @@
           white-space: normal;
         }
 
+        .lede {
+          white-space: normal;
+        }
+
         .summary {
           grid-template-columns: 1fr;
         }
@@ -295,13 +300,6 @@
             <article class="summary-item">
               <h3>Narrow Access</h3>
               <p>The content script is limited to YouTube video watch pages.</p>
-            </article>
-            <article class="summary-item">
-              <h3>No Remote Code</h3>
-              <p>
-                The extension does not load JavaScript or WebAssembly from
-                remote servers.
-              </p>
             </article>
           </div>
         </section>
