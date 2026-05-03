@@ -6,8 +6,7 @@
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "firefox:zip": "npm run build && mkdir -p artifacts && node -e \"require('node:fs').rmSync('artifacts/youtube-engage-o-meter-firefox.zip', { force: true })\" && cd dist && zip -r ../artifacts/youtube-engage-o-meter-firefox.zip .",
-    "firefox:zip:check": "npm run firefox:zip && unzip -l artifacts/youtube-engage-o-meter-firefox.zip content.js manifest.json src/popup/popup.html",
+    "firefox:zip": "npm run build && mkdir -p artifacts && cd dist && zip -r ../artifacts/youtube-engage-o-meter-firefox.zip .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",

@@ -21,7 +21,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       input: {
-        content: resolve("src/content.ts"),
+        "src/content": resolve("src/content.ts"),
         "popup/popup": resolve("src/popup/popup.html"),
       },
       output: {
