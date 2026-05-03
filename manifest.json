@@ -14,7 +14,6 @@
       "run_at": "document_idle"
     }
   ],
-  "host_permissions": ["https://www.youtube.com/*"],
   "browser_specific_settings": {
     "gecko": {
       "id": "youtube-engage-o-meter@petrussola",
