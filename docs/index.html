@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Engage-o-meter</title>
+    <meta
+      name="description"
+      content="Privacy policy and landing page for the YouTube Engage-o-meter browser extension."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #ffffff;
+        --text: #111827;
+        --muted: #4b5563;
+        --border: #e5e7eb;
+        --accent: #dc2626;
+        --accent-dark: #991b1b;
+        --soft: #f9fafb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.6 system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      a {
+        color: var(--accent-dark);
+      }
+
+      .page {
+        width: min(920px, calc(100% - 32px));
+        margin: 0 auto;
+      }
+
+      header {
+        padding: 56px 0 32px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        max-width: 720px;
+        margin-bottom: 16px;
+        font-size: clamp(2rem, 5vw, 4rem);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      h2 {
+        margin-bottom: 16px;
+        font-size: 1.7rem;
+        line-height: 1.2;
+        letter-spacing: 0;
+      }
+
+      h3 {
+        margin-bottom: 8px;
+        font-size: 1.05rem;
+        line-height: 1.3;
+        letter-spacing: 0;
+      }
+
+      .lede {
+        max-width: 700px;
+        margin-bottom: 24px;
+        color: var(--muted);
+        font-size: 1.15rem;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 0 16px;
+        border: 1px solid var(--accent);
+        border-radius: 6px;
+        background: var(--accent);
+        color: #ffffff;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .button.secondary {
+        background: #ffffff;
+        color: var(--accent-dark);
+      }
+
+      main {
+        padding: 32px 0 56px;
+      }
+
+      section {
+        padding: 28px 0;
+        border-bottom: 1px solid var(--border);
+      }
+
+      section:last-child {
+        border-bottom: 0;
+      }
+
+      .summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 18px;
+      }
+
+      .summary-item {
+        padding: 16px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--soft);
+      }
+
+      .summary-item p,
+      .policy p,
+      li {
+        color: var(--muted);
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      .policy {
+        max-width: 760px;
+      }
+
+      .updated {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      footer {
+        padding: 28px 0;
+        border-top: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      @media (max-width: 720px) {
+        header {
+          padding-top: 40px;
+        }
+
+        .summary {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <h1>YouTube Engage-o-meter</h1>
+        <p class="lede">
+          A browser extension that highlights YouTube videos with unusually low
+          visible engagement for their view count.
+        </p>
+        <div class="actions" aria-label="Page links">
+          <a class="button" href="#privacy-policy">Privacy Policy</a>
+          <a
+            class="button secondary"
+            href="https://github.com/petrussola/youtube-engage-o-meter"
+            rel="noopener noreferrer"
+            >Source Code</a
+          >
+        </div>
+      </header>
+
+      <main>
+        <section aria-labelledby="what-it-does">
+          <h2 id="what-it-does">What It Does</h2>
+          <p>
+            YouTube Engage-o-meter runs on YouTube watch pages, reads engagement
+            details that are already visible on the page, and displays an
+            on-page warning when the visible engagement rate appears unusually
+            low.
+          </p>
+          <div class="summary">
+            <article class="summary-item">
+              <h3>Local Analysis</h3>
+              <p>
+                Engagement scoring happens in the browser on the current YouTube
+                page.
+              </p>
+            </article>
+            <article class="summary-item">
+              <h3>Narrow Access</h3>
+              <p>The content script is limited to YouTube video watch pages.</p>
+            </article>
+            <article class="summary-item">
+              <h3>No Remote Code</h3>
+              <p>
+                The extension does not load JavaScript or WebAssembly from
+                remote servers.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        <section id="privacy-policy" class="policy" aria-labelledby="privacy">
+          <h2 id="privacy">Privacy Policy</h2>
+          <p class="updated">Last updated: May 3, 2026</p>
+
+          <h3>Data Collection</h3>
+          <p>
+            YouTube Engage-o-meter does not collect, transmit, sell, or share
+            user data.
+          </p>
+
+          <h3>Data Processed Locally</h3>
+          <p>
+            The extension reads information that is already visible on the
+            current YouTube watch page, such as view count, like count, comment
+            count, and video age. This information is processed locally in the
+            browser to calculate an engagement signal and render the on-page
+            banner.
+          </p>
+
+          <h3>Storage</h3>
+          <p>
+            The extension may store local debug preferences in the browser so
+            the user can show or hide debugging details. These preferences stay
+            on the user's device and are not transmitted by the extension.
+          </p>
+
+          <h3>Network Requests</h3>
+          <p>
+            The extension does not send analytics, browsing history, page
+            content, engagement counts, or personally identifiable information
+            to any server.
+          </p>
+
+          <h3>Permissions</h3>
+          <p>
+            The extension uses a content script match for
+            <code>https://www.youtube.com/watch*</code> so it can run on YouTube
+            video watch pages. This access is necessary for the extension's core
+            functionality.
+          </p>
+
+          <h3>Third Parties</h3>
+          <p>
+            The extension does not share data with third parties and does not
+            include third-party tracking.
+          </p>
+
+          <h3>Contact</h3>
+          <p>
+            Questions or privacy requests can be opened as issues in the
+            <a
+              href="https://github.com/petrussola/youtube-engage-o-meter/issues"
+              rel="noopener noreferrer"
+              >GitHub repository</a
+            >.
+          </p>
+        </section>
+      </main>
+
+      <footer>
+        <span
+          >YouTube Engage-o-meter is an independent open-source project.</span
+        >
+      </footer>
+    </div>
+  </body>
+</html>
