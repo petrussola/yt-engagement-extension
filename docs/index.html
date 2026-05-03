@@ -58,9 +58,8 @@
       }
 
       h1 {
-        max-width: 720px;
-        margin-bottom: 16px;
-        font-size: clamp(2rem, 5vw, 4rem);
+        margin-bottom: 0;
+        font-size: 4rem;
         line-height: 1.05;
         letter-spacing: 0;
       }
@@ -91,6 +90,11 @@
         align-items: center;
         gap: 16px;
         margin-bottom: 18px;
+      }
+
+      .brand h1 {
+        max-width: none;
+        white-space: nowrap;
       }
 
       .logo {
@@ -164,11 +168,19 @@
         margin-top: 18px;
       }
 
+      .screenshot-group {
+        margin-top: 28px;
+      }
+
+      .screenshot-group h3 {
+        margin-bottom: 0;
+      }
+
       .screenshot {
         margin: 0;
       }
 
-      .screenshot:first-child {
+      .screenshot.featured {
         grid-column: 1 / -1;
       }
 
@@ -211,7 +223,25 @@
           padding-top: 40px;
         }
 
+        h1 {
+          font-size: 2.6rem;
+        }
+
+        .brand {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .brand h1 {
+          white-space: normal;
+        }
+
         .summary {
+          grid-template-columns: 1fr;
+        }
+
+        .screenshots {
           grid-template-columns: 1fr;
         }
       }
@@ -279,7 +309,7 @@
         <section aria-labelledby="screenshots">
           <h2 id="screenshots">Screenshots</h2>
           <div class="screenshots">
-            <figure class="screenshot">
+            <figure class="screenshot featured">
               <img
                 src="assets/screenshot_1.png"
                 width="1280"
@@ -288,46 +318,58 @@
               />
               <figcaption>Warning banner on a YouTube watch page.</figcaption>
             </figure>
-            <figure class="screenshot">
-              <img
-                src="assets/screenshot_2.png"
-                width="1280"
-                height="800"
-                alt="YouTube watch page showing the extension's engagement warning and highlighted player."
-              />
-              <figcaption>
-                Visual highlighting around low engagement.
-              </figcaption>
-            </figure>
-            <figure class="screenshot">
-              <img
-                src="assets/screenshot_3.png"
-                width="1280"
-                height="800"
-                alt="YouTube watch page with Engage-o-meter debug details visible in the warning banner."
-              />
-              <figcaption>Optional debug details for manual review.</figcaption>
-            </figure>
-            <figure class="screenshot">
-              <img
-                src="assets/screenshot_4.png"
-                width="1280"
-                height="800"
-                alt="Extension popup with a debug details toggle."
-              />
-              <figcaption>Popup control for debug details.</figcaption>
-            </figure>
-            <figure class="screenshot">
-              <img
-                src="assets/screenshot_5.png"
-                width="1280"
-                height="800"
-                alt="YouTube watch page showing Engage-o-meter analysis on another video."
-              />
-              <figcaption>
-                Engagement analysis across YouTube videos.
-              </figcaption>
-            </figure>
+          </div>
+
+          <div class="screenshot-group">
+            <h3>Visual highlighting around low engagement.</h3>
+            <div class="screenshots">
+              <figure class="screenshot">
+                <img
+                  src="assets/screenshot_2.png"
+                  width="1280"
+                  height="800"
+                  alt="YouTube watch page showing the extension's engagement warning and highlighted player."
+                />
+                <figcaption>
+                  Warning banner and player border for low engagement.
+                </figcaption>
+              </figure>
+              <figure class="screenshot">
+                <img
+                  src="assets/screenshot_3.png"
+                  width="1280"
+                  height="800"
+                  alt="YouTube watch page with Engage-o-meter debug details visible in the warning banner."
+                />
+                <figcaption>
+                  Highlighted engagement analysis on the watch page.
+                </figcaption>
+              </figure>
+            </div>
+          </div>
+
+          <div class="screenshot-group">
+            <h3>Optional popup control for debug details</h3>
+            <div class="screenshots">
+              <figure class="screenshot">
+                <img
+                  src="assets/screenshot_4.png"
+                  width="1280"
+                  height="800"
+                  alt="Extension popup with a debug details toggle."
+                />
+                <figcaption>Debug details toggle in the popup.</figcaption>
+              </figure>
+              <figure class="screenshot">
+                <img
+                  src="assets/screenshot_5.png"
+                  width="1280"
+                  height="800"
+                  alt="YouTube watch page showing Engage-o-meter debug details."
+                />
+                <figcaption>Debug output shown on the watch page.</figcaption>
+              </figure>
+            </div>
           </div>
         </section>
       </main>
